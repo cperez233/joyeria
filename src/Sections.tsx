@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { foto, reviews, site, works, type Copy, type Lang } from "./data";
 import { useDesktop } from "./Collections";
 import { MapPin } from "lucide-react";
-import { LineLink, Reveal, TouchSheen, Words, ease } from "./ui";
+import { LineLink, Rail, Reveal, TouchSheen, Words, ease } from "./ui";
 
 /* ---------------------------------------------------------------- lavori */
 
@@ -83,6 +83,7 @@ export function Works({ t }: { t: Copy["works"] }) {
             {all.map((w, i) => <Tile key={w.src} w={w} i={i} row={ref} />)}
           </div>
         )}
+        {!desktop && <Rail row={ref} count={all.length} group={t.eyebrow} />}
       </div>
     </section>
   );

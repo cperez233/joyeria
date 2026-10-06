@@ -1,10 +1,10 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
 import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "framer-motion";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { collIds, collPhotos, foto, site, wa, type CollId, type Copy } from "./data";
-import { Button, InfinityMark, Reveal, TouchSheen, WaIcon, Words, ease, smooth } from "./ui";
+import { Button, InfinityMark, Rail, Reveal, TouchSheen, WaIcon, Words, ease, lid, smooth } from "./ui";
 
 /* Vitrina: en escritorio la fila avanza en horizontal mientras bajas (sección fija); en el celular es una fila deslizable. */
 export function useDesktop() {
@@ -33,7 +33,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
       className={`w-[80%] shrink-0 snap-center sm:w-[56%] md:w-[44%] lg:w-[min(44vh,430px)] ${n % 2 ? "lg:mt-[14vh]" : "lg:-mt-[4vh]"}`}>
       <motion.div variants={{ hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } } }}>
       <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="group block w-full text-left transition-transform duration-300 active:scale-[0.98]">
-        <span className="relative block overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
+        <span data-frame className="relative block overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
           <motion.img src={foto(ph.src)} srcSet={`${foto(ph.src)} 640w, ${foto(ph.src, 1000)} 1000w`} sizes="(min-width:1024px) 430px, 80vw"
             width={640} height={800} alt={it.alt} loading="lazy" decoding="async" draggable={false}
             style={{ objectPosition: ph.pos, x: desktop ? imgX : 0 }}
@@ -56,10 +56,37 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
   );
 }
 
-function Detail({ id, t, onClose, closeLabel }: { id: CollId; t: Copy["collections"]; onClose: () => void; closeLabel: string }) {
+type Box = { top: number; left: number; width: number; height: number };
+const box = (el: Element): Box => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; };
+
+function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: Copy["collections"]; onClose: () => void; closeLabel: string; origin: HTMLElement | null }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
   const [phone] = useState(() => !matchMedia("(min-width: 768px)").matches);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const head = useRef<HTMLDivElement>(null);
+  const frame = () => origin?.querySelector("[data-frame]") ?? null;
+  /* La foto vola dalla tarjeta alla testata della scheda (e torna indietro chiudendo): un clone fisso,
+     così niente la ritaglia durante il volo. La destinazione è dove arriverà la scheda, non dove parte. */
+  const [fly, setFly] = useState<{ from: Box; to: Box } | null>(null);
+  const [back, setBack] = useState<{ from: Box; to: Box } | null>(null);
+  useLayoutEffect(() => {
+    const f = frame();
+    if (reduce || !f || !head.current || !panelRef.current) return;
+    const h = box(head.current), p = box(panelRef.current);
+    setFly({ from: box(f), to: phone ? { ...h, top: h.top - p.height } : { ...h, left: h.left - p.width } });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const closing = useRef(false);
+  const onClose = useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
+    const f = frame();
+    if (reduce || !f || !head.current) { close(); return; }
+    setFly(null);
+    setBack({ from: box(head.current), to: box(f) });
+    requestAnimationFrame(() => close());
+  }, [close, reduce]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hidden = !!fly || !!back;
   useEffect(() => {
     closeRef.current?.focus();
     smooth.lenis?.stop();
@@ -75,7 +102,7 @@ function Detail({ id, t, onClose, closeLabel }: { id: CollId; t: Copy["collectio
   return createPortal(
     <div className="fixed inset-0 z-[60]" data-lenis-prevent>
       <motion.div className="absolute inset-0 bg-graphite/55 backdrop-blur-[2px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} />
-      <motion.div role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
+      <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
         transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 280, damping: 32 }}
         drag={phone ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={(_, i) => (i.offset.y > 120 || i.velocity.y > 600) && onClose()}
@@ -86,9 +113,10 @@ function Detail({ id, t, onClose, closeLabel }: { id: CollId; t: Copy["collectio
           <X className="h-5 w-5" />
         </button>
         <div className="overflow-y-auto overscroll-contain">
-          <div className="overflow-hidden bg-steel">
-            <motion.img initial={{ scale: 1.12, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.9, ease }}
-              src={foto(ph.src, 1000)} width={1000} height={1250} alt={it.alt} style={{ objectPosition: ph.pos }} draggable={false}
+          <div ref={head} className="overflow-hidden bg-steel">
+            <motion.img initial={origin && !reduce ? false : { scale: 1.12, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.9, ease }}
+              style={{ objectPosition: ph.pos, visibility: hidden ? "hidden" : "visible" }}
+              src={foto(ph.src, 1000)} width={1000} height={1250} alt={it.alt} draggable={false}
               className="aspect-[5/4] w-full object-cover" />
           </div>
           <motion.div className="relative -mt-8 rounded-t-[26px] bg-pearl px-6 pb-8 pt-7" initial="hidden" animate="show"
@@ -105,6 +133,20 @@ function Detail({ id, t, onClose, closeLabel }: { id: CollId; t: Copy["collectio
           </motion.div>
         </div>
       </motion.div>
+      {(fly || back) && (() => {
+        const f = (fly ?? back)!;
+        const end = { ...f.to, borderRadius: back ? 26 : phone ? "28px 28px 0px 0px" : "28px 28px 0px 0px" };
+        return (
+          <motion.div key={back ? "back" : "fly"} aria-hidden className="pointer-events-none absolute overflow-hidden bg-steel shadow-[var(--shadow-float)]"
+            initial={{ ...f.from, borderRadius: back ? "28px 28px 0px 0px" : 26 }}
+            animate={back ? { ...f.from } : end} exit={back ? end : undefined}
+            transition={{ duration: back ? 0.55 : 0.7, ease: lid }}
+            onAnimationComplete={() => { if (!back) setFly(null); }}>
+            <motion.img src={foto(ph.src, 1000)} alt="" draggable={false} style={{ objectPosition: ph.pos }} className="h-full w-full object-cover"
+              initial={{ scale: back ? 1 : 1.1 }} animate={{ scale: back ? 1 : 1 }} exit={{ scale: 1.1 }} transition={{ duration: back ? 0.55 : 0.7, ease: lid }} />
+          </motion.div>
+        );
+      })()}
     </div>,
     document.body,
   );
@@ -160,6 +202,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
                 <Card key={id} id={id} n={n} t={t} progress={p} row={row} desktop={desktop} onOpen={(c, el) => { trigger.current = el; setOpen(c); }} />
               ))}
             </motion.ul>
+            <Rail row={row} count={collIds.length} labels={collIds.map((id) => t.items[id].name)} group={t.eyebrow} className="-mt-1" />
           </motion.div>
 
           {/* avance de la vitrina: línea de bronce con un punto de luz en la punta */}
@@ -186,7 +229,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
         </Reveal>
       </div>
 
-      <AnimatePresence>{open && <Detail key={open} id={open} t={t} onClose={close} closeLabel={closeLabel} />}</AnimatePresence>
+      <AnimatePresence>{open && <Detail key={open} id={open} t={t} onClose={close} closeLabel={closeLabel} origin={trigger.current} />}</AnimatePresence>
     </section>
   );
 }

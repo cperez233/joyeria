@@ -1,12 +1,12 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
 import {
-  AnimatePresence, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue,
+  AnimatePresence, MotionConfig, motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue,
 } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import Lenis from "lenis";
 import { Gem, CircleHelp, MapPin, PenLine, Plus } from "lucide-react";
 import { collPhotos, copy, foto, langPath, maps, navIds, photos, site, wa, type Copy, type Lang } from "./data";
-import { Engraver } from "./Engraver";
+import { Engraver, Laser } from "./Engraver";
 import { Collections } from "./Collections";
 import { Reviews, StoreMap, Works } from "./Sections";
 import { Button, InfinityMark, LineLink, Logo, Reveal, WaIcon, Words, ease, goTo, lid, smooth, soft, spring } from "./ui";
@@ -462,6 +462,9 @@ function Footer({ t, lang, onSwitch }: { t: Copy; lang: Lang; onSwitch: Switch }
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end end"] });
   const y = useTransform(scrollYProgress, [0, 1], ["45%", "0%"]);
   const to = other(lang);
+  // il nome si incide con lo stesso laser del laboratorio quando arriva in vista
+  const nameRef = useRef<HTMLDivElement>(null);
+  const lit = useInView(nameRef, { once: true, amount: 0.6 });
   return (
     <footer ref={ref} className="relative overflow-hidden bg-[#0f1113] pb-24 pt-16 text-frost md:pb-0">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
@@ -481,9 +484,11 @@ function Footer({ t, lang, onSwitch }: { t: Copy; lang: Lang; onSwitch: Switch }
           <p>{t.footer.credit} <a href="https://cristianperez.me" target="_blank" rel="noopener" className="underline decoration-gold/60 underline-offset-4 hover:text-frost">Cristian Pérez</a>{mark}</p>
         </div>
       </div>
-      <motion.p aria-hidden style={{ y }} className="sheen mt-8 select-none whitespace-nowrap text-center font-brand text-[21vw] leading-[0.78] tracking-[0.12em]">
-        JOVI'S
-      </motion.p>
+      <motion.div ref={nameRef} aria-hidden style={{ y }} className="mt-8 select-none text-center">
+        <Laser k={lit ? "on" : "off"} duration={2.4} active={lit} beam="h-[16vw]">
+          <span className="sheen block whitespace-nowrap font-brand text-[21vw] leading-[0.78] tracking-[0.12em]">JOVI'S</span>
+        </Laser>
+      </motion.div>
     </footer>
   );
 }

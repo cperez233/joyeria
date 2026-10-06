@@ -115,7 +115,7 @@ function PieceShape({ piece, children, polish }: { piece: Piece; children: React
 // scintille: direzioni fisse (niente Math.random, stesso HTML su server e client)
 const SPARKS = [[-14, -10, 16], [-6, -16, 12], [5, -14, 18], [13, -8, 14], [-10, -4, 20], [9, -3, 22], [0, -18, 10]] as const;
 
-function Laser({ k, duration, children, active }: { k: string; duration: number; children: React.ReactNode; active: boolean }) {
+export function Laser({ k, duration, children, active, beam = "h-[90cqw]" }: { k: string; duration: number; children: React.ReactNode; active: boolean; beam?: string }) {
   const p = useMotionValue(1);
   const heat = useMotionValue(0);
   const reduce = useReducedMotion();
@@ -140,7 +140,7 @@ function Laser({ k, duration, children, active }: { k: string; duration: number;
         {burning && (
           <motion.span key="dot" style={{ left }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.3 } }}
             aria-hidden className="pointer-events-none absolute top-1/2 -ml-[3px] -mt-[3px] block h-[6px] w-[6px]">
-            <span className="absolute bottom-[3px] left-[2.5px] h-[90cqw] w-px bg-gradient-to-t from-[#fff6e0] via-gold-soft/50 to-transparent" />
+            <span className={`absolute bottom-[3px] left-[2.5px] ${beam} w-px bg-gradient-to-t from-[#fff6e0] via-gold-soft/50 to-transparent`} />
             <span className="laser-flicker absolute inset-0 rounded-full bg-white shadow-[0_0_6px_2px_#fff3d6,0_0_18px_6px_rgb(217_189_140/.75),0_0_40px_10px_rgb(217_189_140/.35)]" />
             {SPARKS.map(([dx, up, fall], j) => (
               <motion.span key={j} className="absolute left-[2px] top-[2px] h-[2px] w-[2px] rounded-full bg-[#fff1c9] shadow-[0_0_4px_1px_rgb(255_210_140/.9)]"

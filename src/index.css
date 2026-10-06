@@ -134,6 +134,7 @@
 /* il solco appena inciso dal laser: incandescente, poi si raffredda (opacity guidata da Framer) */
 .hot .engraved { color: #ffe2a6; text-shadow: 0 0 4px rgb(255 214 150 / .95), 0 0 12px rgb(230 160 70 / .7), 0 0 26px rgb(220 140 50 / .35); }
 .hot .bar { background: #ffdca0; box-shadow: 0 0 6px rgb(255 200 120 / .8); }
+.hot .sheen { animation: none; background-image: none; color: #ffdca0; -webkit-text-fill-color: #ffdca0; text-shadow: 0 0 10px rgb(255 205 130 / .8), 0 0 40px rgb(220 150 60 / .45); }
 .hot img { filter: sepia(1) saturate(4) hue-rotate(-12deg) brightness(1.25) contrast(1.2); mix-blend-mode: screen; }
 
 @keyframes laser-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }

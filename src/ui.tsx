@@ -1,6 +1,6 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
-import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
-import { Fragment, type CSSProperties, type ReactNode, type MouseEvent } from "react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform, type Variants } from "framer-motion";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type MouseEvent, type RefObject } from "react";
 import type Lenis from "lenis";
 import { ArrowUpRight } from "lucide-react";
 
@@ -176,5 +176,99 @@ export function LineLink({ href, children, className = "", track, onClick }: { h
       </span>
       <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">→</span>
     </a>
+  );
+}
+
+/* ---------------------------------------------------------------- riel delle file scorrevoli (telefono) */
+
+/** Indice del pezzo più vicino al centro di una fila che scorre in orizzontale. */
+export function useRowIndex(row: RefObject<HTMLElement>) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const r = el.getBoundingClientRect(), mid = r.left + r.width / 2;
+      let best = 0, d = Infinity;
+      [...el.children].forEach((c, k) => {
+        const cr = c.getBoundingClientRect(), dd = Math.abs(cr.left + cr.width / 2 - mid);
+        if (dd < d) { d = dd; best = k; }
+      });
+      setI(best);
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(read); };
+    read();
+    el.addEventListener("scroll", on, { passive: true });
+    addEventListener("resize", on);
+    return () => { el.removeEventListener("scroll", on); removeEventListener("resize", on); cancelAnimationFrame(raf); };
+  }, [row]);
+  return i;
+}
+
+/** Il diamante del logo: acceso sul pezzo al centro, bronzo pieno su quelli già visti, solo contorno sui prossimi. */
+function RailGem({ on, seen }: { on: boolean; seen: boolean }) {
+  return (
+    <motion.svg viewBox="43.6 5.4 12.8 12.2" className="h-3.5 w-3.5 shrink-0 overflow-visible" aria-hidden
+      animate={{ scale: on ? 1.45 : 1, rotate: on ? 0 : -8 }} transition={{ type: "spring", stiffness: 420, damping: 22 }}>
+      <path d="M44.6 9.2 47 6.4h6l2.4 2.8L50 16.6Z" strokeWidth=".9" strokeLinejoin="round"
+        className={`transition-[fill,stroke] duration-300 ${on ? "fill-gold stroke-gold-soft" : seen ? "fill-gold/45 stroke-gold/60" : "fill-transparent stroke-ink/30"}`} />
+      {on && <path d="M44.6 9.2h10.8M47 6.4l1.4 2.8L50 16.6l1.6-7.4L53 6.4" fill="none" stroke="#fff6e0" strokeOpacity=".8" strokeWidth=".45" strokeLinejoin="round" />}
+      {on && <motion.circle key="glow" cx="50" cy="10.5" r="7" className="fill-gold-soft/40" initial={{ scale: 0.3, opacity: 0.9 }} animate={{ scale: 1.6, opacity: 0 }} transition={{ duration: 0.7, ease }} style={{ transformOrigin: "50px 10.5px" }} />}
+    </motion.svg>
+  );
+}
+
+/** Riel per le file a scorrimento su telefono: dove sei, quanti sono, e un tocco (o un trascinamento) per saltare. */
+export function Rail({ row, count, labels, group, className = "" }: { row: RefObject<HTMLElement>; count: number; labels?: string[]; group: string; className?: string }) {
+  const active = useRowIndex(row);
+  const reduce = useReducedMotion();
+  const { scrollXProgress } = useScroll({ container: row as RefObject<HTMLElement> });
+  const fill = useTransform(scrollXProgress, (v) => `inset(0 ${(1 - v) * 100}% 0 0)`);
+  const prev = useRef(active);
+  const dir = active >= prev.current ? 1 : -1;
+  useEffect(() => { prev.current = active; }, [active]);
+  const scrub = useRef(-1);
+
+  const go = (k: number, smooth = true) => {
+    const el = row.current, c = el?.children[k] as HTMLElement | undefined;
+    if (!el || !c) return;
+    const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
+    el.scrollBy({ left: cr.left + cr.width / 2 - (er.left + er.width / 2), behavior: smooth && !reduce ? "smooth" : "auto" });
+  };
+  const at = (e: PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return Math.max(0, Math.min(count - 1, Math.round(((e.clientX - r.left - 22) / (r.width - 44)) * (count - 1))));
+  };
+
+  return (
+    <div className={`mx-auto mt-3 max-w-[360px] px-4 lg:hidden ${className}`}>
+      {/* il nome è già sotto la foto: qui solo dove sei, che cambia nella direzione in cui scorri */}
+      <p className="flex justify-center text-[14px] font-semibold tabular-nums text-ink-2" aria-live="polite">
+        <span className="relative inline-block h-[20px] w-[1.4ch] overflow-hidden text-right">
+          <AnimatePresence initial={false} custom={dir}>
+            <motion.span key={active} custom={dir} className="absolute inset-0"
+              variants={{ enter: (d: number) => ({ y: d * 20, opacity: 0 }), show: { y: 0, opacity: 1 }, leave: (d: number) => ({ y: d * -20, opacity: 0 }) }}
+              initial="enter" animate="show" exit="leave" transition={{ duration: 0.4, ease }}>{active + 1}</motion.span>
+          </AnimatePresence>
+        </span>
+        <span className="text-mist">&nbsp;/ {count}</span>
+      </p>
+      <div role="group" aria-label={group} className="relative mt-1 flex touch-pan-y justify-between"
+        onPointerDown={(e) => { scrub.current = at(e); }}
+        onPointerMove={(e) => { if (scrub.current < 0 || e.pointerType === "mouse" && e.buttons === 0) return; const k = at(e); if (k !== scrub.current) { scrub.current = k; go(k, false); } }}
+        onPointerUp={() => { scrub.current = -1; }} onPointerCancel={() => { scrub.current = -1; }} onPointerLeave={() => { scrub.current = -1; }}>
+        <span aria-hidden className="absolute inset-x-[22px] top-1/2 h-px bg-ink/15" />
+        <motion.span aria-hidden style={{ clipPath: fill }} className="absolute inset-x-[22px] top-1/2 h-px bg-gold shadow-[0_0_6px_rgb(169_124_69/.5)]" />
+        {Array.from({ length: count }, (_, k) => (
+          <button key={k} type="button" onClick={() => go(k)} aria-label={labels ? labels[k] : `${k + 1} / ${count}`} aria-current={k === active ? "true" : undefined}
+            className="relative grid h-11 w-11 place-items-center">
+            <span aria-hidden className="absolute inset-[13px] rounded-full bg-pearl" />
+            <span className="relative"><RailGem on={k === active} seen={k < active} /></span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
