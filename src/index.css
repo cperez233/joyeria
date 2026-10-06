@@ -31,7 +31,8 @@
 }
 
 @layer base {
-  html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+  /* scrollbar-gutter: bloccare lo scroll con la scheda aperta non fa sparire la barra né spostare la pagina */
+  html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scrollbar-gutter: stable; }
   html.lenis, html.lenis body { height: auto; }
   .lenis.lenis-smooth { scroll-behavior: auto !important; }
   .lenis.lenis-stopped { overflow: hidden; }

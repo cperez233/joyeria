@@ -96,19 +96,26 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     if (!canFly || !f) { setFlying(false); return; }
     const from = box(f);
     place(from, 0);
-    (f as HTMLElement).style.visibility = "hidden"; // la foto ora è "in volo": niente doppione sotto il velo
-    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => setFlying(false) });
+    (f as HTMLElement).style.visibility = "hidden"; // durante il volo la foto è una sola: la tarjeta si nasconde
+    // atterrata la foto nella scheda, la tarjeta torna al suo posto dietro il velo (con una dissolvenza, senza buco nella vetrina)
+    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => { setFlying(false); reveal(f, true); } });
+    openFlight.current = ctl;
     return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // la tarjeta riappare nel fotogramma in cui la foto atterra; l'etichetta "si può incidere" entra con una dissolvenza
-  const reveal = (f: Element) => {
+  const reveal = (f: Element, soft = false) => {
     const el = f as HTMLElement;
     if (el.style.visibility !== "hidden") return;
+    const fadeIn = (x: HTMLElement) => {
+      x.style.transition = "opacity .45s ease"; x.style.opacity = "0";
+      requestAnimationFrame(() => requestAnimationFrame(() => { x.style.opacity = ""; setTimeout(() => { x.style.transition = ""; }, 500); }));
+    };
     const chip = el.querySelector<HTMLElement>("[data-chip]");
-    if (chip) { chip.style.opacity = "0"; chip.style.transition = "opacity .4s ease"; requestAnimationFrame(() => { chip.style.opacity = ""; }); }
+    if (soft) fadeIn(el); else if (chip) fadeIn(chip);
     el.style.visibility = "";
   };
+  const openFlight = useRef<{ stop: () => void } | null>(null);
   const closing = useRef(false);
   // rete di sicurezza se il volo di ritorno non finisce; solo a chiusura vera (StrictMode smonta e rimonta anche all'apertura)
   useEffect(() => () => { const f = frame(); if (f && closing.current) setTimeout(() => reveal(f), 900); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -120,6 +127,8 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     if (canFly && f) {
       // la tarjeta si legge viva ad ogni fotogramma: se la pagina dietro si è spostata, la foto atterra comunque su di lei
       const card = () => (f.isConnected ? box(f) : null);
+      openFlight.current?.stop(); // se si chiude mentre la foto sta ancora entrando
+      (f as HTMLElement).style.visibility = "hidden"; // torna a essere una sola foto: quella che vola
       returning.current = true;
       setFlying(true);
       place(card, 1);
@@ -160,7 +169,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
           className={`absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-full bg-pearl/90 text-ink shadow-[var(--shadow-rest)] backdrop-blur transition-[transform,opacity] duration-300 hover:rotate-90 active:scale-95 ${hidden ? "opacity-0" : "opacity-100"}`}>
           <X className="h-5 w-5" />
         </button>
-        <div className="overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-t-[28px] md:rounded-[28px]">
           <div ref={head} className="overflow-hidden rounded-t-[28px] bg-steel">
             <motion.img initial={origin && !reduce ? false : { scale: 1.12, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.9, ease }}
               style={{ objectPosition: ph.pos, visibility: hidden ? "hidden" : "visible" }}
