@@ -1,19 +1,19 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
 // Taller de grabado: piezas de acero dibujadas en código, un láser que graba lo que escribes.
-import { AnimatePresence, animate, motion, useInView, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, animate, motion, useInView, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { img, photos, wa, type Copy } from "./data";
 import { Button, WaIcon, ease, spring } from "./ui";
 
-type Piece = "piastrina" | "bracciale" | "fede";
+type Piece = "piastrina" | "collana" | "bracciale" | "fede";
 type Mode = "frase" | "canzone" | "foto";
 type Font = "corsivo" | "stampatello" | "macchina";
 
-const MAX: Record<Piece, number> = { piastrina: 24, bracciale: 30, fede: 26 };
+const MAX: Record<Piece, number> = { piastrina: 24, collana: 16, bracciale: 30, fede: 26 };
 // ancho útil del área de grabado (en cqw del escenario) y ancho medio de un carácter por letra (em)
-const AREA: Record<Piece, number> = { piastrina: 50, bracciale: 64, fede: 58 };
+const AREA: Record<Piece, number> = { piastrina: 50, collana: 30, bracciale: 64, fede: 58 };
 const CHAR: Record<Font, number> = { corsivo: 0.42, stampatello: 0.78, macchina: 0.6 };
-const SIZE_MAX: Record<Piece, number> = { piastrina: 8.5, bracciale: 5.6, fede: 6.2 };
+const SIZE_MAX: Record<Piece, number> = { piastrina: 8.5, collana: 6.4, bracciale: 5.6, fede: 6.2 };
 const fontClass: Record<Font, string> = {
   corsivo: "font-script",
   stampatello: "font-display uppercase tracking-[0.18em] font-medium",
@@ -33,7 +33,38 @@ function wave(seed: string, n = 34) {
 
 /* ---------------------------------------------------------------- piezas */
 
-function PieceShape({ piece, children }: { piece: Piece; children: React.ReactNode }) {
+/** La pasada de pulido: cuando el láser termina, una luz recorre el acero de la pieza. */
+function Polish({ k, delay }: { k: string; delay: number }) {
+  const reduce = useReducedMotion();
+  if (reduce) return null;
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+      <motion.span key={k} initial={{ x: "-140%" }} animate={{ x: "260%" }} transition={{ delay, duration: 1.15, ease }}
+        className="absolute inset-y-[-20%] left-0 w-[38%] -skew-x-[18deg] bg-gradient-to-r from-transparent via-white/70 to-transparent mix-blend-overlay" />
+    </span>
+  );
+}
+
+function PieceShape({ piece, children, polish }: { piece: Piece; children: React.ReactNode; polish: React.ReactNode }) {
+  if (piece === "collana")
+    return (
+      <div className="relative w-[44%]">
+        {/* la catena scende dall'alto e si chiude sull'anellino: due tratti sfalsati = maglie alternate */}
+        <svg aria-hidden viewBox="0 0 200 120" preserveAspectRatio="none" className="absolute bottom-[93%] left-1/2 h-[42cqw] w-[150%] -translate-x-1/2 overflow-visible">
+          <defs><linearGradient id="neck" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6f767b" /><stop offset=".7" stopColor="#e9ecee" /><stop offset="1" stopColor="#b9c0c4" /></linearGradient></defs>
+          <path d="M-10 -10C30 60 78 112 100 120 122 112 170 60 210 -10" fill="none" stroke="url(#neck)" strokeWidth="2.6" strokeDasharray="5 2.4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d="M-10 -10C30 60 78 112 100 120 122 112 170 60 210 -10" fill="none" stroke="#3b4044" strokeOpacity=".55" strokeWidth="1.2" strokeDasharray="2.4 5" strokeDashoffset="-3.7" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+        {/* anellino */}
+        <div aria-hidden className="absolute left-1/2 top-[-9%] h-[14%] w-[11%] -translate-x-1/2 rounded-full border-[0.8cqw] border-[#cfd4d7] shadow-[inset_0_1px_1px_rgb(0_0_0/.35),0_1px_0_rgb(255_255_255/.4)]" />
+        {/* medaglia: bordo a specchio, campo spazzolato */}
+        <div className="steel relative aspect-square rounded-full shadow-[inset_0_0_0_1.1cqw_rgb(255_255_255/.35),inset_0_0_0_1.4cqw_rgb(0_0_0/.12),inset_0_-3px_6px_rgb(0_0_0/.25),0_30px_50px_-20px_rgb(0_0_0/.75)]">
+          {polish}
+          <div className="absolute inset-[17%] grid place-items-center">{children}</div>
+        </div>
+      </div>
+    );
+  if (piece === "piastrina")
   if (piece === "piastrina")
     return (
       <div className="relative w-[64%]">
@@ -44,6 +75,7 @@ function PieceShape({ piece, children }: { piece: Piece; children: React.ReactNo
         </svg>
         <div aria-hidden className="absolute left-1/2 top-[-7%] h-[13%] w-[9%] -translate-x-1/2 rounded-full border-[0.9cqw] border-[#c9ced2] shadow-[inset_0_1px_1px_rgb(0_0_0/.3)]" />
         <div className="steel relative aspect-[1.7] rounded-[3.2cqw] shadow-[inset_0_1px_0_rgb(255_255_255/.8),inset_0_-2px_4px_rgb(0_0_0/.25),0_30px_50px_-20px_rgb(0_0_0/.7)]">
+          {polish}
           <div aria-hidden className="absolute left-1/2 top-[7%] h-[9%] w-[5.5%] -translate-x-1/2 rounded-full bg-graphite shadow-[inset_0_1px_2px_rgb(0_0_0/.8)]" />
           <div className="absolute inset-[16%_8%_10%] grid place-items-center">{children}</div>
         </div>
@@ -57,6 +89,7 @@ function PieceShape({ piece, children }: { piece: Piece; children: React.ReactNo
           <ellipse cx="200" cy="70" rx="192" ry="64" fill="none" stroke="url(#wire)" strokeWidth="7" />
         </svg>
         <div className="steel relative mx-auto h-[15cqw] w-[78%] rounded-full shadow-[inset_0_1px_0_rgb(255_255_255/.8),inset_0_-2px_4px_rgb(0_0_0/.25),0_28px_44px_-20px_rgb(0_0_0/.75)]">
+          {polish}
           <div className="absolute inset-[8%_7%] grid place-items-center">{children}</div>
         </div>
       </div>
@@ -70,6 +103,7 @@ function PieceShape({ piece, children }: { piece: Piece; children: React.ReactNo
         <ellipse cx="200" cy="60" rx="180" ry="44" fill="none" stroke="#2a2e32" strokeOpacity=".25" strokeWidth="1" />
       </svg>
       <div className="steel-band relative h-[17cqw] rounded-[2cqw] shadow-[inset_0_2px_6px_rgb(0_0_0/.35),0_26px_40px_-20px_rgb(0_0_0/.7)]">
+        {polish}
         <div className="absolute inset-[10%_6%] grid place-items-center">{children}</div>
       </div>
     </div>
@@ -78,14 +112,21 @@ function PieceShape({ piece, children }: { piece: Piece; children: React.ReactNo
 
 /* ---------------------------------------------------------------- láser */
 
+// scintille: direzioni fisse (niente Math.random, stesso HTML su server e client)
+const SPARKS = [[-14, -10, 16], [-6, -16, 12], [5, -14, 18], [13, -8, 14], [-10, -4, 20], [9, -3, 22], [0, -18, 10]] as const;
+
 function Laser({ k, duration, children, active }: { k: string; duration: number; children: React.ReactNode; active: boolean }) {
   const p = useMotionValue(1);
+  const heat = useMotionValue(0);
   const reduce = useReducedMotion();
   const [burning, setBurning] = useState(false);
   useEffect(() => {
-    if (reduce || !active) { p.set(1); return; }
-    p.set(0); setBurning(true);
-    const c = animate(p, 1, { duration, ease: "linear", onComplete: () => setBurning(false) });
+    if (reduce || !active) { p.set(1); heat.set(0); return; }
+    p.set(0); heat.set(1); setBurning(true);
+    const c = animate(p, 1, {
+      duration, ease: "linear",
+      onComplete: () => { setBurning(false); animate(heat, 0, { duration: 1.4, ease: "easeOut" }); },
+    });
     return () => c.stop();
   }, [k]); // eslint-disable-line react-hooks/exhaustive-deps
   const clip = useTransform(p, (v) => `inset(-30% ${(1 - v) * 100}% -30% 0)`);
@@ -93,12 +134,19 @@ function Laser({ k, duration, children, active }: { k: string; duration: number;
   return (
     <span className="relative inline-block max-w-full">
       <motion.span style={{ clipPath: clip }} className="block">{children}</motion.span>
+      {/* il solco appena inciso è incandescente e si raffredda fino all'acciaio */}
+      <motion.span aria-hidden style={{ clipPath: clip, opacity: heat }} className="hot pointer-events-none absolute inset-0 block">{children}</motion.span>
       <AnimatePresence>
         {burning && (
           <motion.span key="dot" style={{ left }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.3 } }}
             aria-hidden className="pointer-events-none absolute top-1/2 -ml-[3px] -mt-[3px] block h-[6px] w-[6px]">
             <span className="absolute bottom-[3px] left-[2.5px] h-[90cqw] w-px bg-gradient-to-t from-[#fff6e0] via-gold-soft/50 to-transparent" />
             <span className="laser-flicker absolute inset-0 rounded-full bg-white shadow-[0_0_6px_2px_#fff3d6,0_0_18px_6px_rgb(217_189_140/.75),0_0_40px_10px_rgb(217_189_140/.35)]" />
+            {SPARKS.map(([dx, up, fall], j) => (
+              <motion.span key={j} className="absolute left-[2px] top-[2px] h-[2px] w-[2px] rounded-full bg-[#fff1c9] shadow-[0_0_4px_1px_rgb(255_210_140/.9)]"
+                animate={{ x: [0, dx * 0.6, dx], y: [0, up, up + fall], opacity: [1, 1, 0], scale: [1.2, 1, 0.4] }}
+                transition={{ duration: 0.55, repeat: Infinity, delay: j * 0.07, ease: "easeOut", times: [0, 0.45, 1] }} />
+            ))}
           </motion.span>
         )}
       </AnimatePresence>
@@ -138,8 +186,9 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
   const [mode, setMode] = useState<Mode>(ex[0].mode as Mode);
   const [font, setFont] = useState<Font>(ex[0].font as Font);
   const [text, setText] = useState(ex[0].text);
-  const [song, setSong] = useState(t.examples[3].text);
-  const [shown, setShown] = useState({ text: ex[0].text, song: t.examples[3].text }); // lo que ya grabó el láser
+  const songEx = ex.find((e) => e.mode === "canzone")?.text ?? "";
+  const [song, setSong] = useState(songEx);
+  const [shown, setShown] = useState({ text: ex[0].text, song: songEx }); // lo que ya grabó el láser
   const typed = useRef(false);
   const resume = useRef<ReturnType<typeof setTimeout>>();
 
@@ -174,7 +223,7 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
   const content = mode === "canzone" ? shown.song : shown.text;
   const len = Math.max(content.length, 6);
   const size = Math.min(SIZE_MAX[piece] * (font === "corsivo" ? 1.5 : 1), AREA[piece] / (len * CHAR[font]));
-  const bars = useMemo(() => wave(shown.song), [shown.song]);
+  const bars = useMemo(() => wave(shown.song, piece === "collana" ? 20 : 34), [shown.song, piece]);
   const k = `${piece}|${mode}|${font}|${content}`;
   const duration = Math.min(1.9, 0.55 + content.length * 0.05);
 
@@ -182,12 +231,28 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
   const what = mode === "foto" ? t.photoWhat : mode === "canzone" ? t.songWhat(song || "…") : `«${text || "…"}»`;
   const message = t.message(what, t.pieceArticle[piece], mode === "foto" ? undefined : fontName);
   const label = t.preview(what, t.pieceArticle[piece]);
+  const burnTime = mode === "foto" ? 1.6 : duration;
+
+  // con il mouse il pezzo si inclina verso il puntatore e la luce della vetrina lo segue (solo puntatore fine)
+  const px = useMotionValue(0.5), py = useMotionValue(0.42);
+  const sx = useSpring(px, { stiffness: 120, damping: 18 }), sy = useSpring(py, { stiffness: 120, damping: 18 });
+  const rotY = useTransform(sx, [0, 1], [-11, 11]), rotX = useTransform(sy, [0, 1], [8, -8]);
+  const lx = useTransform(sx, (v) => `${v * 100}%`), ly = useTransform(sy, (v) => `${v * 100}%`);
+  const light = useMotionTemplate`radial-gradient(60% 55% at ${lx} ${ly}, rgb(255 255 255 / .15), transparent 70%)`;
+  const tilt = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || reduce) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    px.set((e.clientX - r.left) / r.width); py.set((e.clientY - r.top) / r.height);
+  };
 
   return (
     <div ref={ref} className="overflow-hidden rounded-[30px] bg-white shadow-[var(--shadow-float)] ring-1 ring-white/10">
       {/* escenario */}
-      <div role="img" aria-label={label} className="grain dark @container relative aspect-[5/4] overflow-hidden bg-graphite sm:aspect-[16/12]">
-        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_55%_at_50%_42%,rgb(255_255_255/.13),transparent_70%)]" />
+      <div role="img" aria-label={label} onPointerMove={tilt} onPointerLeave={() => { px.set(0.5); py.set(0.42); }}
+        className="grain dark @container relative aspect-[5/4] overflow-hidden bg-graphite sm:aspect-[16/12]">
+        <motion.div aria-hidden style={{ background: light }} className="absolute inset-0" />
+        {/* un cono di luce dall'alto, come il faretto della vetrina */}
+        <div aria-hidden className="absolute left-1/2 top-0 h-[70%] w-[70%] -translate-x-1/2 bg-[conic-gradient(from_160deg_at_50%_0%,transparent_0deg,rgb(220_191_143/.07)_20deg,transparent_40deg)]" />
         <motion.div key={`shadow-${piece}`} aria-hidden initial={{ scaleX: 0.5, opacity: 0.2 }} animate={{ scaleX: 1, opacity: 1 }} transition={spring}
           className="absolute inset-x-[18%] bottom-[14%] h-[7%] rounded-[50%] bg-black/70 blur-2xl" />
         <AnimatePresence mode="popLayout" initial={false}>
@@ -195,8 +260,10 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
             initial={{ opacity: 0, y: 30, rotateX: 25, scale: 0.92 }} animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95, transition: { duration: 0.25 } }}
             transition={{ duration: 0.8, ease }} style={{ transformPerspective: 900 }}>
-            <PieceShape piece={piece}>
-              <Laser k={k} duration={mode === "foto" ? 1.6 : duration} active={inView}>
+            <motion.div style={{ rotateX: rotX, rotateY: rotY, transformPerspective: 900 }} className="grid w-full place-items-center"
+              animate={inView && !reduce ? { y: [0, -5, 0] } : { y: 0 }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}>
+            <PieceShape piece={piece} polish={<Polish k={k} delay={inView ? burnTime + 0.15 : 0} />}>
+              <Laser k={k} duration={burnTime} active={inView}>
                 {mode === "frase" && (
                   <span className={`engraved block whitespace-nowrap leading-[1.15] ${fontClass[font]}`} style={{ fontSize: `${size}cqw` }}>
                     {shown.text || " "}
@@ -206,7 +273,7 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
                   <span className="flex flex-col items-center gap-[1cqw]">
                     <span className="flex h-[6.5cqw] items-center gap-[0.35cqw]">
                       {bars.map((h, b) => (
-                        <span key={b} className="w-[0.55cqw] rounded-full bg-[rgb(38_42_46/.75)] shadow-[0_1px_0_rgb(255_255_255/.7)]" style={{ height: `${h}%` }} />
+                        <span key={b} className="bar w-[0.55cqw] rounded-full bg-[rgb(38_42_46/.75)] shadow-[0_1px_0_rgb(255_255_255/.7)]" style={{ height: `${h}%` }} />
                       ))}
                     </span>
                     <span className={`engraved whitespace-nowrap leading-none ${fontClass[font]}`} style={{ fontSize: `${Math.min(size, 3.4) * (font === "corsivo" ? 1.3 : 0.8)}cqw` }}>
@@ -216,10 +283,11 @@ export function Engraver({ t }: { t: Copy["engraver"] }) {
                 )}
                 {mode === "foto" && (
                   <img src={img(photos.portrait, 360, 260)} alt="" width={360} height={260} loading="lazy" draggable={false}
-                    className={`block rounded-[1.2cqw] object-cover mix-blend-multiply [filter:grayscale(1)_contrast(1.6)_brightness(1.05)] ${piece === "piastrina" ? "h-[17cqw] w-[26cqw]" : piece === "bracciale" ? "h-[10cqw] w-[30cqw] rounded-full" : "h-[11cqw] w-[34cqw]"}`} />
+                    className={`block rounded-[1.2cqw] object-cover mix-blend-multiply [filter:grayscale(1)_contrast(1.6)_brightness(1.05)] ${piece === "piastrina" ? "h-[17cqw] w-[26cqw]" : piece === "collana" ? "h-[24cqw] w-[24cqw] !rounded-full" : piece === "bracciale" ? "h-[10cqw] w-[30cqw] rounded-full" : "h-[11cqw] w-[34cqw]"}`} />
                 )}
               </Laser>
             </PieceShape>
+            </motion.div>
           </motion.div>
         </AnimatePresence>
 

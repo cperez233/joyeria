@@ -255,9 +255,9 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
   }, [inView, fine]);
 
   return (
-    <Reveal className="mt-16 sm:mt-20">
-      <div ref={ref} className="relative overflow-hidden rounded-[28px] bg-[#151316] shadow-[var(--shadow-float)] ring-1 ring-white/10">
-        <div className="relative aspect-[5/4] sm:aspect-[21/9]">
+    <Reveal className="h-full">
+      <div ref={ref} className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151316] shadow-[var(--shadow-float)] ring-1 ring-white/10">
+        <div className="relative aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-[600px] lg:flex-1">
           {MAP_KEY ? (
             <div ref={canvas} className={`absolute inset-0 ${fine ? "" : "pointer-events-none"}`} role="region" aria-label={t.mapTitle} />
           ) : inView && (
@@ -265,6 +265,19 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
             <iframe title={t.mapTitle} loading="lazy" referrerPolicy="no-referrer-when-downgrade" tabIndex={fine ? undefined : -1}
               src={`https://maps.google.com/maps?q=${encodeURIComponent("Jovi's_gioielleria e Incisioni Pordenone")}&ll=${site.geo.lat},${site.geo.lng}&z=16&hl=it&output=embed`}
               className={`absolute inset-0 h-full w-full border-0 [filter:grayscale(1)_invert(.92)_contrast(1.08)_brightness(.95)] ${fine ? "" : "pointer-events-none"}`} />
+          )}
+          {/* il nostro segnaposto in bronzo cade sul punto, una sola onda quando arriva */}
+          {!MAP_KEY && (
+            <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-[5]">
+              <motion.span className="absolute -left-6 -top-3 h-6 w-12 rounded-[50%] border border-gold-soft/70"
+                initial={{ scale: 0.2, opacity: 0 }} whileInView={{ scale: [0.2, 2.6], opacity: [0, 0.9, 0] }} viewport={{ once: true }}
+                transition={{ delay: 1.15, duration: 1.4, ease: "easeOut" }} />
+              <motion.span className="absolute -left-[3px] -top-[2px] h-1 w-1.5 rounded-[50%] bg-black/70 blur-[2px]"
+                initial={{ scale: 0 }} whileInView={{ scale: 4 }} viewport={{ once: true }} transition={{ delay: 1, duration: 0.5 }} />
+              <motion.img src={pin} width={44} height={56} alt="" className="absolute -left-[22px] -top-[55px] h-14 w-11 max-w-none drop-shadow-[0_8px_10px_rgb(0_0_0/.6)]"
+                initial={{ y: -90, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }}
+                transition={{ delay: 0.7, type: "spring", stiffness: 420, damping: 16 }} />
+            </div>
           )}
           {fine ? (!MAP_KEY && !active && (
             <button type="button" onClick={() => setActive(true)} aria-label={t.openMap}
@@ -275,19 +288,18 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
               className="absolute inset-0 z-10 flex items-start justify-end p-3">
               <motion.span initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.5, ease }}
                 className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-graphite/85 px-4 text-[14px] font-semibold text-frost shadow-[0_8px_20px_-8px_rgb(0_0_0/.8)] ring-1 ring-white/15 backdrop-blur-md">
-                <MapPin className="h-4 w-4 text-gold-soft" />{t.openMap}
+                <MapPin className="h-4 w-4 shrink-0 text-gold-soft" />{t.openMap}
               </motion.span>
             </a>
           )}
-          {/* bordo sfumato: la mappa si scioglie nel nero della sezione */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_36px_10px_#110f12] sm:shadow-[inset_0_0_80px_30px_#110f12]" />
+          {/* bordo sfumato leggero: la mappa si scioglie nel nero senza perdere strade */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_28px_6px_#110f12] sm:shadow-[inset_0_0_48px_12px_#110f12]" />
         </div>
-        {/* biglietto da vetrina: sotto la mappa sul telefono (non la copre), sopra la mappa da sm in su */}
+        {/* biglietto da vetrina con l'indirizzo: sotto la mappa sul telefono, sopra la mappa da sm in su */}
         <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.3, ease }}
-          className="relative z-20 m-3 -mt-6 rounded-[22px] bg-pearl p-5 text-ink shadow-[var(--shadow-float)] sm:absolute sm:bottom-6 sm:left-6 sm:m-0 sm:w-[360px]">
+          className="pointer-events-none relative z-20 m-3 -mt-6 rounded-[22px] bg-pearl p-5 text-ink shadow-[var(--shadow-float)] sm:absolute sm:bottom-5 sm:left-5 sm:m-0 sm:w-[340px]">
           <p className="font-brand text-[18px] tracking-[0.2em]">JOVI'S</p>
-          <p className="mt-1 text-[15px] leading-snug text-ink-2">{site.mall}<br />{site.street}, {site.postal} {site.city}</p>
-          <LineLink href={site.googleMaps} track="maps_scheda" className="mt-1 text-[15px]">{t.openMap}</LineLink>
+          <p className="mt-1 text-[15px] leading-snug text-ink-2">{site.mall}<br />{site.street}, {site.postal} {site.city} ({site.region})</p>
         </motion.div>
       </div>
     </Reveal>

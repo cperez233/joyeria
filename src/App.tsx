@@ -149,6 +149,9 @@ function Hero({ t }: { t: Copy }) {
   const markY = useTransform(scrollYProgress, [0, 1], [0, 90]);
   const markScale = useTransform(scrollYProgress, [0, 1], [1, 0.88]);
   const fanY = useTransform(scrollYProgress, [0, 1], [0, -50]);
+  // la sezione dopo scorre sopra: il contenuto della vetrina si allontana e si spegne un poco
+  const sink = useTransform(scrollYProgress, [0.25, 1], [1, 0.94]);
+  const dimOut = useTransform(scrollYProgress, [0.25, 1], [1, 0.35]);
   const h = t.hero, it = t.collections.items;
   const fan = [
     { id: "collane", src: "collana-ala", o: -1 },
@@ -161,7 +164,7 @@ function Hero({ t }: { t: Copy }) {
       <div aria-hidden className="absolute left-1/2 top-[-18%] h-[80%] w-[110%] -translate-x-1/2 bg-[radial-gradient(closest-side,rgb(220_191_143/.15),transparent)]" />
       <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/40 to-transparent" />
 
-      <div className="relative mx-auto max-w-[1280px] px-4 text-center sm:px-8">
+      <motion.div style={{ scale: sink, opacity: dimOut }} className="relative mx-auto max-w-[1280px] origin-top px-4 text-center sm:px-8">
         <motion.div style={{ y: markY, scale: markScale }} className="relative mx-auto w-[min(66vw,320px)]">
           <InfinityMark draw delay={0.25} stroke={6.2} glint="loop" className="relative h-auto w-full" />
           {/* l'ombra del gioiello sul piano della vetrina */}
@@ -194,7 +197,7 @@ function Hero({ t }: { t: Copy }) {
             <LineLink href="#collezioni" onClick={(e) => goTo(e, "collezioni")} className="text-frost">{h.link}</LineLink>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* tre pezzi veri della vetrina, a ventaglio; salgono più veloci del testo e la sezione dopo li copre */}
       <motion.div style={{ y: fanY }} className="relative mx-auto mt-12 h-[clamp(190px,36vw,380px)] max-w-[980px] sm:mt-14">
@@ -244,6 +247,19 @@ function Statement({ text }: { text: string }) {
 
 /* ---------------------------------------------------------------- incisión: cómo funciona */
 
+/** Il numero del passo si accende quando il punto del laser ci arriva. */
+function StepDot({ n, at, p }: { n: number; at: number; p: MotionValue<number> }) {
+  const lit = useTransform(p, [at - 0.04, at + 0.02], [0, 1]);
+  const bg = useTransform(lit, [0, 1], ["rgb(17 15 18)", "rgb(220 191 143)"]);
+  const fg = useTransform(lit, [0, 1], ["rgb(220 191 143)", "rgb(22 20 23)"]);
+  const glow = useTransform(lit, (v) => `0 0 ${v * 18}px ${v * 4}px rgb(220 191 143 / ${v * 0.45})`);
+  return (
+    <motion.span aria-hidden initial={{ scale: 0.4 }} whileInView={{ scale: 1 }} viewport={{ once: true, margin: "-80px" }} transition={soft}
+      style={{ backgroundColor: bg, color: fg, boxShadow: glow }}
+      className="absolute left-0 top-0.5 grid h-8 w-8 place-items-center rounded-full text-[14px] font-semibold ring-1 ring-gold-soft/40">{n}</motion.span>
+  );
+}
+
 function Steps({ steps }: { steps: Copy["engraving"]["steps"] }) {
   const ref = useRef<HTMLOListElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.8", "end 0.5"] });
@@ -259,8 +275,7 @@ function Steps({ steps }: { steps: Copy["engraving"]["steps"] }) {
       <ol ref={ref} className="space-y-10">
         {steps.map((s, i) => (
           <motion.li key={s.t} className="relative pl-14" initial={{ opacity: 0, x: 16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.7, ease }}>
-            <motion.span aria-hidden initial={{ scale: 0.4 }} whileInView={{ scale: 1 }} viewport={{ once: true, margin: "-80px" }} transition={soft}
-              className="absolute left-0 top-0.5 grid h-8 w-8 place-items-center rounded-full bg-graphite text-[14px] font-semibold text-gold-soft ring-1 ring-gold-soft/40">{i + 1}</motion.span>
+            <StepDot n={i + 1} at={steps.length > 1 ? i / (steps.length - 1) : 0} p={p} />
             <h3 className="text-[30px] leading-tight text-frost">{s.t}</h3>
             <p className="mt-1.5 max-w-[46ch] text-frost/80">{s.d}</p>
           </motion.li>
@@ -372,22 +387,21 @@ function Store({ t }: { t: Copy["store"] }) {
     const [o, c] = range(now.day);
     return now.min >= toMin(o) && now.min < toMin(c) ? t.openUntil(fmt(c)) : t.closedNow;
   })();
+  // indirizzo completo sulla mappa, social nel footer: qui solo ciò che non si ripete
   const facts = [
-    { k: t.address, v: <>{site.mall}<br />{site.street}, {site.postal} {site.city} ({site.region})</> },
     { k: t.bus, v: t.busText },
     { k: t.contact, v: <a href={`tel:${site.phone}`} data-track="tel" className="underline decoration-gold underline-offset-4">{site.phoneLabel}</a> },
-    { k: t.social, v: <><a href={site.instagram} target="_blank" rel="noopener" className="underline decoration-gold underline-offset-4">Instagram</a> · <a href={site.facebook} target="_blank" rel="noopener" className="underline decoration-gold underline-offset-4">Facebook</a></> },
   ];
   return (
     <section id="negozio" aria-labelledby="h-neg" className="grain dark relative z-10 -mt-10 rounded-t-[36px] bg-graphite pb-24 pt-20 text-frost shadow-[var(--shadow-sheet)] sm:-mt-14 sm:rounded-t-[56px] sm:pb-32 sm:pt-28">
-      <div className="mx-auto grid max-w-[1280px] gap-14 px-4 sm:px-8 lg:grid-cols-[1fr_1.05fr] lg:gap-20">
-        <div>
+      <div className="mx-auto grid max-w-[1280px] gap-12 px-4 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+        <div className="lg:py-6">
           <Reveal><p className="eyebrow">{t.eyebrow}</p></Reveal>
           <h2 id="h-neg" className="mt-4 text-[clamp(2.4rem,5vw,4.2rem)] font-light leading-[1]">
             <Words text={t.h2a} inView /> <Words text={t.h2b} inView delay={0.12} className="text-frost/55" />
           </h2>
           <Reveal delay={0.1} as="p" className="mt-6 max-w-[46ch] text-[18px] text-frost/85">{t.lede}</Reveal>
-          <motion.dl className="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-2" initial="hidden" whileInView="show" viewport={{ once: true }}
+          <motion.dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6" initial="hidden" whileInView="show" viewport={{ once: true }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
             {facts.map((f) => (
               <motion.div key={f.k} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="border-t border-frost/12 pt-3">
@@ -401,35 +415,39 @@ function Store({ t }: { t: Copy["store"] }) {
             <LineLink href={maps} track="maps" className="text-frost">{t.directions}</LineLink>
           </Reveal>
         </div>
-
-        <div className="relative">
-          <motion.div className="overflow-hidden rounded-[28px] shadow-[var(--shadow-float)] lg:ml-14"
-            initial={{ clipPath: "inset(0 0 100% 0 round 28px)" }} whileInView={{ clipPath: "inset(0 0 0% 0 round 28px)" }} viewport={{ once: true }} transition={{ duration: 1.2, ease: lid }}>
-            <img src={foto(photos.store, 1000)} width={1000} height={1250} loading="lazy" decoding="async" alt={t.photoAlt} style={{ objectPosition: "50% 45%" }} className="aspect-[9/7] w-full object-cover" />
-          </motion.div>
-          {/* orari: la tarjeta flota sobre la foto y marca el día de hoy */}
-          <motion.div className="relative z-10 -mt-24 mr-3 rounded-[24px] bg-pearl p-6 text-ink shadow-[var(--shadow-float)] sm:mr-0 sm:w-[80%]"
-            initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }} transition={{ duration: 0.8, ease }}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <p className="text-[14px] font-semibold text-gold-ink">{t.hours}</p>
-              <AnimatePresence>{status && <motion.p initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} className="text-[14px] font-semibold">{t.today}: {status}</motion.p>}</AnimatePresence>
-            </div>
-            <ul className="mt-3">
-              {t.days.map((d, i) => {
-                const [o, c] = range(i), on = now?.day === i;
-                return (
-                  <li key={d} className={`relative flex justify-between rounded-lg px-2 py-1.5 text-[15px] tabular-nums ${on ? "font-semibold" : "text-ink-2"}`}>
-                    {on && <motion.span layoutId="today" className="absolute inset-0 rounded-lg bg-steel" transition={spring} />}
-                    <span className="relative">{d}</span><span className="relative">{fmt(o)} – {fmt(c)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="mt-3 text-[13px] text-mist">{t.closed}</p>
-          </motion.div>
-        </div>
+        <StoreMap t={t} />
       </div>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-8"><StoreMap t={t} /></div>
+
+      {/* orari: la tarjeta flota sobre la foto y marca el día de hoy */}
+      <div className="mx-auto mt-16 grid max-w-[1280px] items-center px-4 sm:mt-24 sm:px-8 lg:grid-cols-[1.15fr_0.85fr]">
+        <motion.div className="overflow-hidden rounded-[28px] shadow-[var(--shadow-float)]"
+          initial={{ clipPath: "inset(0 0 100% 0 round 28px)" }} whileInView={{ clipPath: "inset(0 0 0% 0 round 28px)" }} viewport={{ once: true }} transition={{ duration: 1.2, ease: lid }}>
+          <motion.img src={foto(photos.store, 1000)} width={1000} height={1250} loading="lazy" decoding="async" alt={t.photoAlt}
+            initial={{ scale: 1.15 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ duration: 1.8, ease }}
+            style={{ objectPosition: "50% 45%" }} className="aspect-[9/7] w-full object-cover lg:aspect-[16/11]" />
+        </motion.div>
+        <motion.div className="relative z-10 -mt-24 mr-3 rounded-[24px] bg-pearl p-6 text-ink shadow-[var(--shadow-float)] sm:mr-0 sm:w-[80%] lg:-ml-24 lg:mt-0 lg:w-auto"
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }} transition={{ duration: 0.8, ease }}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p className="text-[14px] font-semibold text-gold-ink">{t.hours}</p>
+            <AnimatePresence>{status && <motion.p initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} className="text-[14px] font-semibold">{t.today}: {status}</motion.p>}</AnimatePresence>
+          </div>
+          <motion.ul className="mt-3" initial="hidden" whileInView="show" viewport={{ once: true }}
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.3 } } }}>
+            {t.days.map((d, i) => {
+              const [o, c] = range(i), on = now?.day === i;
+              return (
+                <motion.li key={d} variants={{ hidden: { opacity: 0, x: 10 }, show: { opacity: 1, x: 0 } }}
+                  className={`relative flex justify-between rounded-lg px-2 py-1.5 text-[15px] tabular-nums ${on ? "font-semibold" : "text-ink-2"}`}>
+                  {on && <motion.span layoutId="today" className="absolute inset-0 rounded-lg bg-steel" transition={spring} />}
+                  <span className="relative">{d}</span><span className="relative">{fmt(o)} – {fmt(c)}</span>
+                </motion.li>
+              );
+            })}
+          </motion.ul>
+          <p className="mt-3 text-[13px] text-mist">{t.closed}</p>
+        </motion.div>
+      </div>
     </section>
   );
 }
