@@ -1,18 +1,26 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
 // Lavori veri (muro con colonne a velocità diverse), recensioni Google e mappa in bianco e nero.
 import { AnimatePresence, motion, useInView, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { foto, reviews, site, works, type Copy, type Lang } from "./data";
 import { useDesktop } from "./Collections";
-import { LineLink, Reveal, Words, ease } from "./ui";
+import { MapPin } from "lucide-react";
+import { LineLink, Reveal, TouchSheen, Words, ease } from "./ui";
 
 /* ---------------------------------------------------------------- lavori */
 
 type Work = (typeof works)[number] & { caption: string };
 
-function Tile({ w, i, row = false }: { w: Work; i: number; row?: boolean }) {
+function Tile({ w, i, row }: { w: Work; i: number; row?: RefObject<HTMLDivElement> }) {
+  // celular: come le collezioni, la foto al centro a piena misura e le vicine più piccole, inclinate e spente
+  const ref = useRef<HTMLElement>(null);
+  const { scrollXProgress } = useScroll({ container: row, target: ref, axis: "x", offset: ["start end", "end start"] });
+  const scale = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.88, 1, 0.88]);
+  const rotate = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [-3, 0, 3]);
+  const dim = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.5, 1, 0.5]);
   return (
-    <motion.figure className={`group ${row ? "w-[74%] shrink-0 snap-center" : ""}`} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }}
+    <motion.figure ref={ref} style={row ? { scale, rotate, opacity: dim } : undefined} className={`group ${row ? "w-[74%] shrink-0 snap-center" : ""}`}>
+      <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.9, delay: (i % 3) * 0.08, ease }}>
       <motion.div className="relative overflow-hidden rounded-[22px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]"
         initial={{ clipPath: "inset(18% 0% 0% 0% round 22px)" }} whileInView={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
@@ -20,9 +28,11 @@ function Tile({ w, i, row = false }: { w: Work; i: number; row?: boolean }) {
         <img src={`/foto/${w.src}-560.webp`} srcSet={`/foto/${w.src}-560.webp 560w, /foto/${w.src}-900.webp 900w`} sizes="(min-width:1024px) 400px, 50vw"
           width={w.w} height={w.h} alt={w.caption} loading="lazy" decoding="async"
           className={`block w-full transition-transform duration-[1.2s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:scale-[1.05] ${row ? "aspect-[4/5] object-cover" : "h-auto"}`} />
+        <TouchSheen className="via-white/30" />
         <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-[60%] w-[45%] -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 transition-[left,opacity] duration-[1.1s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:left-[120%] [@media(hover:hover)]:group-hover:opacity-100" />
       </motion.div>
       <figcaption className="mt-3 px-1 text-[15px] leading-snug text-ink-2">{w.caption}</figcaption>
+      </motion.div>
     </motion.figure>
   );
 }
@@ -69,8 +79,8 @@ export function Works({ t }: { t: Copy["works"] }) {
           </div>
         ) : (
           // celular: una fila deslizable, così il muro non allunga la pagina
-          <div ref={ref} data-lenis-prevent-touch className="-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-[13%] gap-4 overflow-x-auto px-[13%] pb-4 [scrollbar-width:none] sm:-mx-8">
-            {all.map((w, i) => <Tile key={w.src} w={w} i={i} row />)}
+          <div ref={ref} data-lenis-prevent-touch className="-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-[13%] gap-2 overflow-x-auto px-[13%] pb-4 [scrollbar-width:none] sm:-mx-8">
+            {all.map((w, i) => <Tile key={w.src} w={w} i={i} row={ref} />)}
           </div>
         )}
       </div>
@@ -207,12 +217,25 @@ const pin = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://ww
 
 type GMaps = { maps: { Map: new (el: HTMLElement, o: object) => unknown; Marker: new (o: object) => unknown; Size: new (w: number, h: number) => unknown; Point: new (x: number, y: number) => unknown } };
 
+/** Puntero fino (mouse/trackpad). En pantallas táctiles el mapa no se maneja dentro de la página:
+ *  un iframe o un mapa "cooperative" en un celular pelea con el scroll y no se deja mover bien. */
+function useFinePointer() {
+  const [fine, setFine] = useState(true);
+  useEffect(() => {
+    const mq = matchMedia("(hover: hover) and (pointer: fine)");
+    const on = () => setFine(mq.matches);
+    on(); mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return fine;
+}
+
 export function StoreMap({ t }: { t: Copy["store"] }) {
   const ref = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "300px 0px" });
+  const fine = useFinePointer();
   const [active, setActive] = useState(false); // la mappa non ruba lo scroll finché non la tocchi
-  
 
   useEffect(() => {
     if (!inView || !MAP_KEY || !canvas.current) return;
@@ -220,7 +243,7 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
     const draw = () => {
       const g = w.google!;
       const center = { lat: site.geo.lat, lng: site.geo.lng };
-      const map = new g.maps.Map(canvas.current!, { center, zoom: 16, styles: mapStyle, disableDefaultUI: true, zoomControl: true, gestureHandling: "cooperative", backgroundColor: "#151316" });
+      const map = new g.maps.Map(canvas.current!, { center, zoom: 16, styles: mapStyle, disableDefaultUI: true, zoomControl: fine, gestureHandling: fine ? "cooperative" : "none", backgroundColor: "#151316" });
       new g.maps.Marker({ position: center, map, title: site.name, icon: { url: pin, scaledSize: new g.maps.Size(44, 56), anchor: new g.maps.Point(22, 55) } });
     };
     if (w.google?.maps) { draw(); return; }
@@ -229,30 +252,39 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
     s.src = `https://maps.googleapis.com/maps/api/js?key=${MAP_KEY}&callback=__jovisMap&loading=async`;
     s.async = true;
     document.head.appendChild(s);
-  }, [inView]);
+  }, [inView, fine]);
 
   return (
     <Reveal className="mt-16 sm:mt-20">
       <div ref={ref} className="relative overflow-hidden rounded-[28px] bg-[#151316] shadow-[var(--shadow-float)] ring-1 ring-white/10">
-        <div className="relative aspect-square sm:aspect-[21/9]">
+        <div className="relative aspect-[5/4] sm:aspect-[21/9]">
           {MAP_KEY ? (
-            <div ref={canvas} className="absolute inset-0" role="region" aria-label={t.mapTitle} />
+            <div ref={canvas} className={`absolute inset-0 ${fine ? "" : "pointer-events-none"}`} role="region" aria-label={t.mapTitle} />
           ) : inView && (
             // Senza chiave API: la mappa incorporata di Google, portata al bianco e nero della pagina
-            <iframe title={t.mapTitle} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+            <iframe title={t.mapTitle} loading="lazy" referrerPolicy="no-referrer-when-downgrade" tabIndex={fine ? undefined : -1}
               src={`https://maps.google.com/maps?q=${encodeURIComponent("Jovi's_gioielleria e Incisioni Pordenone")}&ll=${site.geo.lat},${site.geo.lng}&z=16&hl=it&output=embed`}
-              className="absolute inset-0 h-full w-full border-0 [filter:grayscale(1)_invert(.92)_contrast(1.08)_brightness(.95)]" />
+              className={`absolute inset-0 h-full w-full border-0 [filter:grayscale(1)_invert(.92)_contrast(1.08)_brightness(.95)] ${fine ? "" : "pointer-events-none"}`} />
           )}
-          {!MAP_KEY && !active && (
+          {fine ? (!MAP_KEY && !active && (
             <button type="button" onClick={() => setActive(true)} aria-label={t.openMap}
               className="group absolute inset-0 z-10 cursor-pointer bg-transparent" />
+          )) : (
+            // al tocco: la app de mapas del teléfono, donde sí se mueve con un dedo
+            <a href={site.googleMaps} target="_blank" rel="noopener" data-track="maps_mappa" aria-label={t.openMap}
+              className="absolute inset-0 z-10 flex items-start justify-end p-3">
+              <motion.span initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.5, ease }}
+                className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-graphite/85 px-4 text-[14px] font-semibold text-frost shadow-[0_8px_20px_-8px_rgb(0_0_0/.8)] ring-1 ring-white/15 backdrop-blur-md">
+                <MapPin className="h-4 w-4 text-gold-soft" />{t.openMap}
+              </motion.span>
+            </a>
           )}
           {/* bordo sfumato: la mappa si scioglie nel nero della sezione */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_80px_30px_#110f12]" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_36px_10px_#110f12] sm:shadow-[inset_0_0_80px_30px_#110f12]" />
         </div>
-        {/* biglietto da vetrina sopra la mappa */}
+        {/* biglietto da vetrina: sotto la mappa sul telefono (non la copre), sopra la mappa da sm in su */}
         <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.3, ease }}
-          className="pointer-events-auto absolute bottom-4 left-4 right-4 z-20 rounded-[22px] bg-pearl p-5 text-ink shadow-[var(--shadow-float)] sm:bottom-6 sm:left-6 sm:right-auto sm:w-[360px]">
+          className="relative z-20 m-3 -mt-6 rounded-[22px] bg-pearl p-5 text-ink shadow-[var(--shadow-float)] sm:absolute sm:bottom-6 sm:left-6 sm:m-0 sm:w-[360px]">
           <p className="font-brand text-[18px] tracking-[0.2em]">JOVI'S</p>
           <p className="mt-1 text-[15px] leading-snug text-ink-2">{site.mall}<br />{site.street}, {site.postal} {site.city}</p>
           <LineLink href={site.googleMaps} track="maps_scheda" className="mt-1 text-[15px]">{t.openMap}</LineLink>
@@ -261,4 +293,3 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
     </Reveal>
   );
 }
-

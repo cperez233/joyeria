@@ -4,7 +4,7 @@ import {
 } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import Lenis from "lenis";
-import { Gem, MapPin, PenLine, Plus } from "lucide-react";
+import { Gem, CircleHelp, MapPin, PenLine, Plus } from "lucide-react";
 import { collPhotos, copy, foto, langPath, maps, navIds, photos, site, wa, type Copy, type Lang } from "./data";
 import { Engraver } from "./Engraver";
 import { Collections } from "./Collections";
@@ -16,14 +16,30 @@ const other = (l: Lang): Lang => (l === "it" ? "en" : "it");
 
 /* ---------------------------------------------------------------- navegación */
 
+type NavId = (typeof navIds)[number];
+const isNav = (id: string): id is NavId => (navIds as readonly string[]).includes(id);
+
+/** Sección en pantalla y, para el dock, el botón que le toca: las secciones sin botón propio
+ *  (lavori, recensioni) quedan bajo el último botón que tienen encima en la página. */
 function useActive() {
   const [active, setActive] = useState("");
+  const [owner, setOwner] = useState<NavId | null>(null);
   useEffect(() => {
-    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && setActive(e.target.id)), { rootMargin: "-45% 0px -50% 0px" });
-    ["inizio", ...navIds].forEach((id) => { const el = document.getElementById(id); el && io.observe(el); });
+    const all = [...document.querySelectorAll<HTMLElement>("main section[id]")];
+    const ownerOf = (id: string) => {
+      let o: NavId | null = null;
+      for (const el of all) { if (isNav(el.id)) o = el.id; if (el.id === id) break; }
+      return o;
+    };
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      setActive(e.target.id);
+      setOwner(ownerOf(e.target.id));
+    }), { rootMargin: "-45% 0px -50% 0px" });
+    all.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
-  return active;
+  return { active: isNav(active) ? active : "", owner };
 }
 
 function LangLink({ lang, onSwitch, className = "" }: { lang: Lang; onSwitch: Switch; className?: string }) {
@@ -39,13 +55,25 @@ function LangLink({ lang, onSwitch, className = "" }: { lang: Lang; onSwitch: Sw
 }
 
 function Nav({ t, lang, onSwitch }: { t: Copy; lang: Lang; onSwitch: Switch }) {
-  const active = useActive();
+  const { active, owner } = useActive();
   const { scrollY } = useScroll();
   const [compact, setCompact] = useState(false);
   const [dock, setDock] = useState(false);
   useMotionValueEvent(scrollY, "change", (v) => { setCompact(v > 40); setDock(v > window.innerHeight * 0.5); });
   const waHello = wa(t.ui.waHello);
-  const icons = { collezioni: Gem, incisione: PenLine, negozio: MapPin } as const;
+  const icons = { collezioni: Gem, incisione: PenLine, domande: CircleHelp, negozio: MapPin } as const;
+
+  /* Dock: el indicador nunca se desmonta (si se desmonta, layoutId no tiene de dónde deslizarse y
+     aparece de golpe). Al tocar un botón queda fijado en el destino hasta llegar, así va directo
+     en vez de saltar por cada sección intermedia mientras la página se desplaza. */
+  const [pinned, setPinned] = useState<NavId | null>(null);
+  useEffect(() => { if (pinned && owner === pinned) setPinned(null); }, [owner, pinned]);
+  useEffect(() => {
+    if (!pinned) return;
+    const id = setTimeout(() => setPinned(null), 1800);
+    return () => clearTimeout(id);
+  }, [pinned]);
+  const dockOn = pinned ?? owner;
 
   return (
     <>
@@ -57,10 +85,10 @@ function Nav({ t, lang, onSwitch }: { t: Copy; lang: Lang; onSwitch: Switch }) {
             className={`text-frost transition-[opacity,translate] duration-500 ${compact ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"}`}><Logo tone="light" /></a>
           <nav aria-label="Principale" className="hidden items-center gap-1 md:flex">
             {navIds.map((id) => (
-              <a key={id} href={`#${id}`} onClick={(e) => goTo(e, id)} aria-current={active === id ? "true" : undefined}
-                className={`relative px-3.5 py-2 text-[15px] font-medium transition-colors ${active === id ? "text-frost" : "text-frost/65 hover:text-frost"}`}>
+              <a key={id} href={`#${id}`} onClick={(e) => goTo(e, id)} aria-current={owner === id ? "true" : undefined}
+                className={`relative px-3.5 py-2 text-[15px] font-medium transition-colors ${owner === id ? "text-frost" : "text-frost/65 hover:text-frost"}`}>
                 {t.ui.nav[id]}
-                {active === id && <motion.span layoutId="nav-line" transition={spring} className="absolute inset-x-3.5 -bottom-0.5 h-[2px] rounded-full bg-gold-soft shadow-[0_0_10px_rgb(220_191_143/.6)]" />}
+                {owner === id && <motion.span layoutId="nav-line" transition={spring} className="absolute inset-x-3.5 -bottom-0.5 h-[2px] rounded-full bg-gold-soft shadow-[0_0_10px_rgb(220_191_143/.6)]" />}
               </a>
             ))}
           </nav>
@@ -79,24 +107,32 @@ function Nav({ t, lang, onSwitch }: { t: Copy; lang: Lang; onSwitch: Switch }) {
         {dock && (
           <motion.nav aria-label="Principale" initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={spring}
             className="fixed inset-x-3 bottom-3 z-50 flex items-center gap-1 rounded-[26px] bg-[#2a262b]/90 p-1.5 text-frost shadow-[0_18px_40px_-10px_rgb(0_0_0/.7),0_0_0_1px_rgb(255_255_255/.14),inset_0_1px_0_rgb(255_255_255/.12)] backdrop-blur-xl md:hidden">
-            {(["collezioni", "incisione", "negozio"] as const).map((id) => {
-              const Icon = icons[id], on = active === id;
+            {navIds.map((id) => {
+              const Icon = icons[id], on = dockOn === id;
               return (
-                <a key={id} href={`#${id}`} onClick={(e) => goTo(e, id)} aria-current={on ? "true" : undefined}
-                  className="relative flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[20px] text-[12px] font-semibold">
-                  {on && <motion.span layoutId="dock" transition={spring} className="absolute inset-0 rounded-[20px] bg-white/12" />}
-                  <motion.span animate={on ? { y: [0, -3, 0] } : { y: 0 }} transition={{ duration: 0.4 }} className="relative"><Icon className={`h-[18px] w-[18px] ${on ? "text-gold-soft" : "text-frost/70"}`} /></motion.span>
-                  <span className={`relative ${on ? "text-frost" : "text-frost/70"}`}>{t.ui.nav[id]}</span>
+                <a key={id} href={`#${id}`} onClick={(e) => { setPinned(id); goTo(e, id); }} aria-current={owner === id ? "true" : undefined}
+                  className="relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[20px] text-[12px] font-semibold max-[379px]:text-[11px] max-[379px]:tracking-[-0.01em]">
+                  {on && (
+                    <motion.span layoutId="dock" transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.9 }}
+                      className="absolute inset-0 rounded-[20px] bg-white/12 shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_6px_16px_-8px_rgb(0_0_0/.6)]">
+                      <span aria-hidden className="absolute inset-x-4 bottom-1 h-[2px] rounded-full bg-gold-soft shadow-[0_0_8px_rgb(220_191_143/.7)]" />
+                    </motion.span>
+                  )}
+                  <motion.span animate={on ? { y: [0, -4, 0], scale: [1, 1.12, 1] } : { y: 0, scale: 1 }} transition={{ duration: 0.45, ease }} className="relative">
+                    <Icon className={`h-[18px] w-[18px] transition-colors duration-300 ${on ? "text-gold-soft" : "text-frost/70"}`} />
+                  </motion.span>
+                  <span className={`relative max-w-full truncate transition-colors duration-300 ${on ? "text-frost" : "text-frost/70"}`}>{t.ui.nav[id]}</span>
                 </a>
               );
             })}
             <motion.a href={waHello} target="_blank" rel="noopener" data-track="whatsapp_dock"
               whileTap={{ scale: 0.9 }} transition={soft}
               animate={active === "negozio" ? { boxShadow: ["0 0 0 0 rgb(220 191 143 / .55)", "0 0 0 10px rgb(220 191 143 / 0)"] } : { boxShadow: "0 0 0 0 rgb(220 191 143 / 0)" }}
-              className="relative flex min-h-[52px] flex-[1.15] flex-col items-center justify-center gap-0.5 overflow-hidden rounded-[20px] bg-gradient-to-b from-gold-soft to-gold text-[12px] font-semibold text-ink">
+              className="relative flex min-h-[52px] flex-[1.15] flex-col max-[379px]:flex-[0.7] items-center justify-center gap-0.5 overflow-hidden rounded-[20px] bg-gradient-to-b from-gold-soft to-gold text-[12px] font-semibold text-ink">
               <span aria-hidden className="cta-sheen" />
               <motion.span className="relative" animate={active === "negozio" ? { rotate: [0, -14, 12, -8, 0] } : { rotate: 0 }} transition={{ duration: 0.7 }}><WaIcon className="h-[18px] w-[18px]" /></motion.span>
-              <span className="relative">{t.ui.whatsapp}</span>
+              {/* sotto i 380px solo l'icona: così le quattro voci restano intere */}
+              <span className="relative max-[379px]:sr-only">{t.ui.whatsapp}</span>
             </motion.a>
           </motion.nav>
         )}

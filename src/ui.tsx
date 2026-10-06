@@ -2,6 +2,7 @@
 import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
 import { Fragment, type CSSProperties, type ReactNode, type MouseEvent } from "react";
 import type Lenis from "lenis";
+import { ArrowUpRight } from "lucide-react";
 
 export const ease = [0.22, 1, 0.36, 1] as const;
 export const lid = [0.76, 0, 0.24, 1] as const;
@@ -117,9 +118,20 @@ export function WaIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+/** En pantallas táctiles no hay hover: el reflejo que en PC sigue al puntero pasa solo, una vez,
+ *  cuando la pieza entra en pantalla (o queda centrada en una fila deslizable). Oculto con mouse. */
+export function TouchSheen({ amount = 0.85, className = "via-white/35" }: { amount?: number; className?: string }) {
+  return (
+    <motion.span aria-hidden initial={{ left: "-60%", opacity: 0 }} whileInView={{ left: "130%", opacity: [0, 1, 1, 0] }}
+      viewport={{ amount }} transition={{ duration: 1.2, delay: 0.15, ease }}
+      className={`pointer-events-none absolute inset-y-0 w-[45%] -skew-x-12 bg-gradient-to-r from-transparent to-transparent [@media(hover:hover)]:hidden ${className}`} />
+  );
+}
+
 const canHover = () => typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
 
-/** Botón principal: barrido de luz, flecha que se va y vuelve, atracción magnética (solo con puntero). */
+/** Botón principal: barrido de luz, flecha que se va y vuelve, atracción magnética (solo con puntero).
+ *  La flecha es un SVG: el carácter ↗ (U+2197) iOS/Android lo pintan como emoji. */
 export function Button({ href, children, track, icon, variant = "ink", className = "" }:
   { href: string; children: ReactNode; track?: string; icon?: ReactNode; variant?: "ink" | "gold" | "frost"; className?: string }) {
   const x = useMotionValue(0), y = useMotionValue(0);
@@ -139,12 +151,13 @@ export function Button({ href, children, track, icon, variant = "ink", className
     <motion.a href={href} data-track={track} style={{ x: sx, y: sy }} onMouseMove={move} onMouseLeave={() => { x.set(0); y.set(0); }}
       whileTap={{ scale: 0.96 }} target={external ? "_blank" : undefined} rel={external ? "noopener" : undefined}
       className={`group relative inline-flex min-h-[52px] items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 text-[16px] font-semibold shadow-[var(--shadow-rest)] transition-colors duration-300 ${tone} ${className}`}>
+      <TouchSheen amount={1} className="via-white/40" />
       <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 -skew-x-12 bg-white/25 opacity-0 transition-[left,opacity] duration-700 ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:left-[120%] [@media(hover:hover)]:group-hover:opacity-100" />
       {icon}
       <span className="relative">{children}</span>
       <span aria-hidden className="relative h-4 w-4 overflow-hidden">
-        <span className="absolute inset-0 transition-transform duration-500 ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:translate-x-full [@media(hover:hover)]:group-hover:-translate-y-full">↗</span>
-        <span className="absolute inset-0 -translate-x-full translate-y-full transition-transform duration-500 ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:translate-x-0 [@media(hover:hover)]:group-hover:translate-y-0">↗</span>
+        <span className="absolute inset-0 transition-transform duration-500 ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:translate-x-full [@media(hover:hover)]:group-hover:-translate-y-full"><ArrowUpRight className="h-4 w-4" strokeWidth={2.25} /></span>
+        <span className="absolute inset-0 -translate-x-full translate-y-full transition-transform duration-500 ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:translate-x-0 [@media(hover:hover)]:group-hover:translate-y-0"><ArrowUpRight className="h-4 w-4" strokeWidth={2.25} /></span>
       </span>
     </motion.a>
   );

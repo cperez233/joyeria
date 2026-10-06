@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { collIds, collPhotos, foto, site, wa, type CollId, type Copy } from "./data";
-import { Button, InfinityMark, Reveal, WaIcon, Words, ease, smooth } from "./ui";
+import { Button, InfinityMark, Reveal, TouchSheen, WaIcon, Words, ease, smooth } from "./ui";
 
 /* Vitrina: en escritorio la fila avanza en horizontal mientras bajas (sección fija); en el celular es una fila deslizable. */
 export function useDesktop() {
@@ -32,7 +32,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
     <motion.li ref={ref} style={desktop ? { scale: 1, opacity: 1 } : { scale, opacity: dim }}
       className={`w-[80%] shrink-0 snap-center sm:w-[56%] md:w-[44%] lg:w-[min(44vh,430px)] ${n % 2 ? "lg:mt-[14vh]" : "lg:-mt-[4vh]"}`}>
       <motion.div variants={{ hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } } }}>
-      <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="group block w-full text-left">
+      <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="group block w-full text-left transition-transform duration-300 active:scale-[0.98]">
         <span className="relative block overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
           <motion.img src={foto(ph.src)} srcSet={`${foto(ph.src)} 640w, ${foto(ph.src, 1000)} 1000w`} sizes="(min-width:1024px) 430px, 80vw"
             width={640} height={800} alt={it.alt} loading="lazy" decoding="async" draggable={false}
@@ -40,6 +40,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
             className="aspect-[4/5] w-full scale-[1.1] object-cover transition-transform duration-[1.2s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:scale-[1.17]" />
           {/* un riflesso attraversa la foto al passaggio del puntero */}
           <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-[60%] w-[45%] -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 transition-[left,opacity] duration-[1.1s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:left-[120%] [@media(hover:hover)]:group-hover:opacity-100" />
+          <TouchSheen />
           <span className="absolute left-3.5 top-3.5 rounded-full bg-pearl/90 px-3 py-1 text-[13px] font-semibold text-ink backdrop-blur-sm">{t.tag}</span>
         </span>
         <span className="mt-4 flex items-end justify-between gap-4 px-1">
