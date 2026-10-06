@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useInView, useReducedMotion, useScroll, useTra
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { foto, reviews, site, works, type Copy, type Lang } from "./data";
 import { useDesktop } from "./Collections";
-import { MapPin } from "lucide-react";
+import { MapPin, Move } from "lucide-react";
 import { LineLink, Rail, Reveal, TouchSheen, Words, ease } from "./ui";
 
 /* ---------------------------------------------------------------- lavori */
@@ -237,6 +237,15 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
   const inView = useInView(ref, { once: true, margin: "300px 0px" });
   const fine = useFinePointer();
   const [active, setActive] = useState(false); // la mappa non ruba lo scroll finché non la tocchi
+  // se con la mappa attiva la pagina scorre (la rotella è passata dall'iframe), si torna alla mappa ferma
+  useEffect(() => {
+    if (!active) return;
+    let armed = false;
+    const t = setTimeout(() => { armed = true; }, 450);
+    const off = () => { if (armed) setActive(false); };
+    addEventListener("scroll", off, { passive: true });
+    return () => { clearTimeout(t); removeEventListener("scroll", off); };
+  }, [active]);
 
   useEffect(() => {
     if (!inView || !MAP_KEY || !canvas.current) return;
@@ -257,7 +266,8 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
 
   return (
     <Reveal className="h-full">
-      <div ref={ref} className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151316] shadow-[var(--shadow-float)] ring-1 ring-white/10">
+      {/* uscendo col puntatore la mappa torna ferma: la rotella dentro l'iframe non passa da Lenis e la pagina andava a scatti */}
+      <div ref={ref} onMouseLeave={() => setActive(false)} className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151316] shadow-[var(--shadow-float)] ring-1 ring-white/10">
         <div className="relative aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-[600px] lg:flex-1">
           {MAP_KEY ? (
             <div ref={canvas} className={`absolute inset-0 ${fine ? "" : "pointer-events-none"}`} role="region" aria-label={t.mapTitle} />
@@ -280,9 +290,18 @@ export function StoreMap({ t }: { t: Copy["store"] }) {
                 transition={{ delay: 0.7, type: "spring", stiffness: 420, damping: 16 }} />
             </div>
           )}
-          {fine ? (!MAP_KEY && !active && (
-            <button type="button" onClick={() => setActive(true)} aria-label={t.openMap}
-              className="group absolute inset-0 z-10 cursor-pointer bg-transparent" />
+          {fine ? (!MAP_KEY && (
+            <AnimatePresence>
+              {!active && (
+                <motion.button key="lock" type="button" onClick={() => setActive(true)} aria-label={t.mapHint}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
+                  className="group absolute inset-0 z-10 flex cursor-pointer items-start justify-end bg-transparent p-4">
+                  <span className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-graphite/85 px-4 text-[14px] font-semibold text-frost shadow-[0_8px_20px_-8px_rgb(0_0_0/.8)] ring-1 ring-white/15 backdrop-blur-md transition-transform duration-300 group-hover:-translate-y-0.5">
+                    <Move className="h-4 w-4 shrink-0 text-gold-soft" />{t.mapHint}
+                  </span>
+                </motion.button>
+              )}
+            </AnimatePresence>
           )) : (
             // al tocco: la app de mapas del teléfono, donde sí se mueve con un dedo
             <a href={site.googleMaps} target="_blank" rel="noopener" data-track="maps_mappa" aria-label={t.openMap}
