@@ -19,7 +19,7 @@ export function useDesktop() {
 }
 
 function Card({ id, n, t, onOpen, progress, row, desktop }:
-  { id: CollId; n: number; t: Copy["collections"]; onOpen: (id: CollId, el: HTMLElement) => void; progress: MotionValue<number>; row: RefObject<HTMLUListElement>; desktop: boolean }) {
+  { id: CollId; n: number; t: Copy["collections"]; onOpen: (id: CollId, el: HTMLElement, keyboard: boolean) => void; progress: MotionValue<number>; row: RefObject<HTMLUListElement>; desktop: boolean }) {
   const it = t.items[id], ph = collPhotos[id];
   const ref = useRef<HTMLLIElement>(null);
   // escritorio: la foto se desliza dentro del marco más despacio que la fila (profundidad)
@@ -32,7 +32,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
     <motion.li ref={ref} style={desktop ? { scale: 1, opacity: 1 } : { scale, opacity: dim }}
       className={`w-[80%] shrink-0 snap-center sm:w-[56%] md:w-[44%] lg:w-[min(44vh,430px)] ${n % 2 ? "lg:mt-[14vh]" : "lg:-mt-[4vh]"}`}>
       <motion.div variants={{ hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } } }}>
-      <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="group block w-full text-left transition-transform duration-300 active:scale-[0.98]">
+      <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget, e.detail === 0)} className="group block w-full text-left transition-transform duration-300 active:scale-[0.98]">
         <span data-frame className="relative block overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
           <motion.img src={foto(ph.src)} srcSet={`${foto(ph.src)} 640w, ${foto(ph.src, 1000)} 1000w`} sizes="(min-width:1024px) 430px, 80vw"
             width={640} height={800} alt={it.alt} loading="lazy" decoding="async" draggable={false}
@@ -59,7 +59,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
 type Box = { top: number; left: number; width: number; height: number };
 const box = (el: Element): Box => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; };
 
-function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: Copy["collections"]; onClose: () => void; closeLabel: string; origin: HTMLElement | null }) {
+function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: CollId; t: Copy["collections"]; onClose: () => void; closeLabel: string; origin: HTMLElement | null; keyboard: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
   const [phone] = useState(() => !matchMedia("(min-width: 768px)").matches);
@@ -94,7 +94,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
     if (!canFly || !f) { setFlying(false); return; }
     const from = box(f);
     place(from, 0);
-    const ctl = animate(0, 1, { duration: 0.7, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => setFlying(false) });
+    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => setFlying(false) });
     return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,13 +107,14 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
       const to = box(f);
       setFlying(true);
       place(to, 1);
-      animate(1, 0, { duration: 0.5, ease: lid, onUpdate: (v) => place(to, v) });
+      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(to, v) });
     }
     close();
   }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
   const hidden = flying;
   useEffect(() => {
-    closeRef.current?.focus();
+    // da tastiera il fuoco va sul pulsante chiudi; col tocco sul pannello stesso, senza anello visibile
+    if (keyboard) closeRef.current?.focus(); else panelRef.current?.focus({ preventScroll: true });
     smooth.lenis?.stop();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const html = document.documentElement, prev = html.style.overflow;
@@ -127,11 +128,11 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
   return createPortal(
     <div className="fixed inset-0 z-[60]" data-lenis-prevent>
       <motion.div className="absolute inset-0 bg-graphite/55 backdrop-blur-[2px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} />
-      <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
-        transition={reduce ? { duration: 0 } : { duration: 0.6, ease: lid }} exit={{ ...(phone ? { y: "100%" } : { x: "100%" }), transition: { duration: 0.5, ease: lid } }}
+      <motion.div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
+        transition={reduce ? { duration: 0 } : { duration: 0.9, ease: lid }} exit={{ ...(phone ? { y: "100%" } : { x: "100%" }), transition: { duration: 0.75, ease: lid } }}
         drag={phone ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={(_, i) => (i.offset.y > 120 || i.velocity.y > 600) && onClose()}
-        className={`absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col rounded-t-[28px] bg-pearl ${hidden ? "overflow-visible" : "overflow-hidden"} shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]`}>
+        className={`absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col rounded-t-[28px] bg-pearl outline-none ${hidden ? "overflow-visible" : "overflow-hidden"} shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]`}>
         {canFly && (
           <div ref={cloneRef} aria-hidden style={{ visibility: flying ? "visible" : "hidden" }}
             className="pointer-events-none absolute overflow-hidden bg-steel shadow-[0_24px_48px_-20px_rgb(10_12_14/.5)]">
@@ -144,7 +145,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
           <X className="h-5 w-5" />
         </button>
         <div className="overflow-y-auto overscroll-contain">
-          <div ref={head} className="overflow-hidden bg-steel">
+          <div ref={head} className="overflow-hidden rounded-t-[28px] bg-steel">
             <motion.img initial={origin && !reduce ? false : { scale: 1.12, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.9, ease }}
               style={{ objectPosition: ph.pos, visibility: hidden ? "hidden" : "visible" }}
               src={foto(ph.src, 1000)} width={1000} height={1250} alt={it.alt} draggable={false}
@@ -172,7 +173,12 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
 export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLabel: string }) {
   const [open, setOpen] = useState<CollId | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
-  const close = useCallback(() => { setOpen(null); requestAnimationFrame(() => trigger.current?.focus()); }, []);
+  const keyboard = useRef(false);
+  // il fuoco torna alla tarjeta solo da tastiera: col tocco quel fuoco programmato accendeva il bordo dorato sul telefono
+  const close = useCallback(() => {
+    setOpen(null);
+    requestAnimationFrame(() => (keyboard.current ? trigger.current?.focus() : (document.activeElement as HTMLElement | null)?.blur()));
+  }, []);
   const desktop = useDesktop();
   const outer = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
@@ -216,7 +222,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
               variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
               className="mt-10 flex snap-x snap-mandatory scroll-px-[10%] gap-3 overflow-x-auto px-[10%] pb-6 [scrollbar-width:none] sm:gap-5 lg:mt-0 lg:snap-none lg:gap-12 lg:overflow-visible lg:px-0 lg:pb-0">
               {collIds.map((id, n) => (
-                <Card key={id} id={id} n={n} t={t} progress={p} row={row} desktop={desktop} onOpen={(c, el) => { trigger.current = el; setOpen(c); }} />
+                <Card key={id} id={id} n={n} t={t} progress={p} row={row} desktop={desktop} onOpen={(c, el, kb) => { trigger.current = el; keyboard.current = kb; setOpen(c); }} />
               ))}
             </motion.ul>
             <Rail row={row} count={collIds.length} labels={collIds.map((id) => t.items[id].name)} group={t.eyebrow} className="-mt-1" />
@@ -246,7 +252,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
         </Reveal>
       </div>
 
-      <AnimatePresence>{open && <Detail key={open} id={open} t={t} onClose={close} closeLabel={closeLabel} origin={trigger.current} />}</AnimatePresence>
+      <AnimatePresence>{open && <Detail key={open} id={open} t={t} onClose={close} closeLabel={closeLabel} origin={trigger.current} keyboard={keyboard.current} />}</AnimatePresence>
     </section>
   );
 }
