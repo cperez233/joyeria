@@ -74,7 +74,9 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
   /* La foto vola dalla tarjeta alla testata. Vive DENTRO il pannello (prima del foglio di testo, che quindi le sta
      sopra senza ritagli) e ad ogni fotogramma si ricalcola dalla posizione reale del pannello e della testata:
      così atterra esattamente dove sta la testata, senza correzioni finali. Niente transform sui figli: angoli tondi anche su Safari. */
-  const place = (from: Box, v: number) => {
+  const place = (src: Box | (() => Box | null), v: number) => {
+    const from = typeof src === "function" ? src() : src;
+    if (!from) return;
     const c = cloneRef.current, im = cloneImg.current, pn = panelRef.current, h = head.current;
     if (!c || !im || !pn || !h) return;
     const pr = pn.getBoundingClientRect(), hr = h.getBoundingClientRect();
@@ -83,7 +85,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     c.style.top = `${mix(from.top, hr.top) - pr.top}px`;
     c.style.width = `${mix(from.width, hr.width)}px`;
     c.style.height = `${mix(from.height, hr.height)}px`;
-    const rt = mix(26, 28), rb = mix(26, 0);
+    const rt = mix(26, 28), rb = returning.current ? 26 : mix(26, 0);
     c.style.borderRadius = `${rt}px ${rt}px ${rb}px ${rb}px`;
     const z = mix(1.1, 1); // nella tarjeta la foto è ingrandita del 10%
     im.style.left = im.style.top = `${(1 - z) * 50}%`;
@@ -99,22 +101,25 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const closing = useRef(false);
+  const returning = useRef(false);
   const onClose = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
     const f = frame();
     if (canFly && f) {
-      const to = box(f);
+      // la tarjeta si legge viva ad ogni fotogramma: se la pagina dietro si è spostata, la foto atterra comunque su di lei
+      const card = () => (f.isConnected ? box(f) : null);
+      returning.current = true;
       setFlying(true);
-      place(to, 1);
-      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(to, v) });
+      place(card, 1);
+      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(card, v) });
     }
     close();
   }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
   const hidden = flying;
   useEffect(() => {
     // da tastiera il fuoco va sul pulsante chiudi; col tocco sul pannello stesso, senza anello visibile
-    if (keyboard) closeRef.current?.focus(); else panelRef.current?.focus({ preventScroll: true });
+    (keyboard ? closeRef.current : panelRef.current)?.focus({ preventScroll: true });
     smooth.lenis?.stop();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const html = document.documentElement, prev = html.style.overflow;
@@ -177,7 +182,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
   // il fuoco torna alla tarjeta solo da tastiera: col tocco quel fuoco programmato accendeva il bordo dorato sul telefono
   const close = useCallback(() => {
     setOpen(null);
-    requestAnimationFrame(() => (keyboard.current ? trigger.current?.focus() : (document.activeElement as HTMLElement | null)?.blur()));
+    requestAnimationFrame(() => (keyboard.current ? trigger.current?.focus({ preventScroll: true }) : (document.activeElement as HTMLElement | null)?.blur()));
   }, []);
   const desktop = useDesktop();
   const outer = useRef<HTMLDivElement>(null);
