@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "crisol-dev", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--port", "5179"], "port": 5179 },
+    { "name": "crisol-preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "preview", "--port", "4179"], "port": 4179 }
+  ]
+}

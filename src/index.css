@@ -1,0 +1,135 @@
+/* editorial-ui · Cristian Pérez · cristianperez.me */
+@import "tailwindcss";
+
+@theme {
+  --color-pearl: #f3efe8;     /* fondo claro: avorio caldo, come le foto di Jovi's */
+  --color-steel: #e2ddd4;     /* superficie */
+  --color-steel-2: #c9c3b8;
+  --color-mist: #74706b;      /* testo secondario */
+  --color-ink: #161417;       /* nero dell'anello destro del logo */
+  --color-ink-2: #3e3a3d;
+  --color-graphite: #110f12;  /* vetrina di notte */
+  --color-graphite-2: #1d1a1e;
+  --color-gold: #a97c45;      /* bronzo del logo */
+  --color-gold-ink: #80602f;  /* bronzo leggibile su avorio */
+  --color-gold-soft: #dcbf8f; /* champagne su nero */
+  --color-frost: #eeebe6;     /* testo su nero */
+
+  --font-display: "Cormorant Garamond", "Cormorant", Georgia, serif;
+  --font-brand: "Marcellus", "Cormorant Garamond", serif;
+  --font-sans: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --font-script: "Great Vibes", cursive;
+  --font-type: "Courier Prime", "Courier New", monospace;
+
+  --shadow-rest: 0 1px 2px rgb(22 24 27 / .06), 0 8px 22px -12px rgb(22 24 27 / .22);
+  --shadow-raised: 0 2px 6px rgb(22 24 27 / .08), 0 28px 56px -24px rgb(22 24 27 / .38);
+  --shadow-float: 0 10px 24px rgb(10 12 14 / .16), 0 44px 96px -32px rgb(10 12 14 / .55);
+  --shadow-sheet: 0 -30px 60px -30px rgb(10 12 14 / .35);
+
+  --ease-out-soft: cubic-bezier(.22, 1, .36, 1);
+  --ease-lid: cubic-bezier(.76, 0, .24, 1);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-stopped { overflow: hidden; }
+  body {
+    @apply bg-pearl text-ink font-sans antialiased;
+    font-size: 17px; line-height: 1.6; overflow-x: clip;
+  }
+  h1, h2, h3 { @apply font-display; font-weight: 500; letter-spacing: -.015em; }
+  :focus-visible { outline: 2px solid var(--color-gold); outline-offset: 3px; border-radius: 6px; }
+  ::selection { background: var(--color-gold-soft); color: var(--color-ink); }
+}
+
+@layer components {
+  /* grana quasi invisibile */
+  .grain { position: relative; isolation: isolate; }
+  .grain::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .45;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .eyebrow { @apply flex items-center gap-3 text-[16px] font-semibold text-ink/85; }
+  .eyebrow::before { content: ""; @apply h-px w-6 shrink-0 bg-gold; }
+  .dark .eyebrow { @apply text-frost/90; }
+
+  /* acciaio spazzolato: riflessi + righe sottili */
+  .steel {
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .08) 0 1px, transparent 1px 3px),
+      linear-gradient(100deg, #b9bfc4 0%, #f3f5f6 20%, #aab1b6 42%, #e6e9eb 60%, #9aa2a8 82%, #d5d9dc 100%);
+  }
+  .steel-band {
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .07) 0 1px, transparent 1px 3px),
+      linear-gradient(180deg, #8d959b 0%, #eef1f2 28%, #c3c9cd 52%, #f6f7f8 70%, #858d93 100%);
+  }
+  /* testo inciso: scuro dentro, luce sul bordo inferiore */
+  .engraved {
+    color: rgb(38 42 46 / .82);
+    text-shadow: 0 1px 0 rgb(255 255 255 / .7), 0 -1px 0 rgb(0 0 0 / .18);
+  }
+  /* traccia del laser nei passaggi: si rivela con clip, mai con scala */
+  .laser-track { background: repeating-linear-gradient(90deg, var(--color-gold) 0 8px, transparent 8px 14px); }
+}
+
+/* Senza JS (html senza .js) o se l'app non si idrata in 6 s (.reveal-all): mostra ciò che Framer tiene nascosto. */
+:is(html:not(.js), .reveal-all) :is([style*="opacity:0"], [style*="translateY(110%)"], [style*="clip-path"], [style*="translateY(90px)"]) {
+  opacity: 1 !important; transform: none !important; clip-path: none !important;
+}
+:is(html:not(.js), .reveal-all) [style*="height:0px"] { height: auto !important; }
+
+/* Il resplendore che percorre l'infinito: un tratto di luce lungo il path (pathLength=1). */
+@keyframes nudge { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+@keyframes glint-run { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -1; } }
+@keyframes glint-in { from { opacity: 0; } to { opacity: 1; } }
+.glint { stroke-dasharray: .07 .93; stroke-dashoffset: .2; opacity: 0; }
+.glint-core { stroke-dasharray: .045 .955; }
+@keyframes glint-run-core { from { stroke-dashoffset: -.0125; } to { stroke-dashoffset: -1.0125; } }
+.glint-loop .glint-core { animation-name: glint-run-core, glint-in; }
+.glint-loop .glint { animation: glint-run var(--glint-dur, 5.2s) linear var(--glint-delay, 0s) infinite, glint-in .6s ease var(--glint-delay, 0s) forwards; }
+@media (hover: hover) {
+  .group:hover .glint-hover .glint, .glint-hover:hover .glint { animation: glint-run 1.5s cubic-bezier(.45,.05,.35,1) 1 both; opacity: 1; }
+  .group:hover .glint-hover .glint-core, .glint-hover:hover .glint-core { animation-name: glint-run-core; }
+}
+/* il diamante brilla quando la luce passa sull'incrocio (a metà e alla fine del giro) */
+@keyframes sparkle { 0%, 80% { transform: scale(0) rotate(0deg); opacity: 0; } 92% { transform: scale(1) rotate(45deg); opacity: 1; } 100% { transform: scale(0) rotate(90deg); opacity: 0; } }
+.sparkle { transform-box: fill-box; transform-origin: center; transform: scale(0); }
+.glint-loop .sparkle { animation: sparkle calc(var(--glint-dur, 5.2s) / 2) linear var(--glint-delay, 0s) infinite; }
+
+/* riflesso sulle stelle delle recensioni, ogni tanto */
+@keyframes star-sheen { 0%, 70% { transform: translateX(-120%) skewX(-12deg); } 100% { transform: translateX(320%) skewX(-12deg); } }
+.star-sheen > span { position: absolute; inset: -20% auto -20% 0; width: 30%; background: linear-gradient(90deg, transparent, rgb(255 250 235 / .85), transparent); mix-blend-mode: overlay; animation: star-sheen 5s ease-in-out 2s infinite; transform: translateX(-120%); }
+
+/* il nome JOVI'S: la luce lo attraversa ogni tanto, come il resplendore sull'infinito */
+@keyframes word-sheen { 0% { background-position: 130% 0; } 30%, 100% { background-position: -30% 0; } }
+.wordmark {
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg, #eeebe6 0%, #eeebe6 42%, #fffaf0 48%, #dcbf8f 52%, #eeebe6 58%, #eeebe6 100%);
+  background-size: 260% 100%; background-position: 130% 0;
+  animation: word-sheen 7s cubic-bezier(.45,.05,.35,1) 2.4s infinite;
+}
+
+/* WhatsApp del dock: un riflesso lo attraversa ogni tanto, e risponde al tocco */
+@keyframes cta-sheen { 0%, 78% { transform: translateX(-130%) skewX(-14deg); } 100% { transform: translateX(260%) skewX(-14deg); } }
+.cta-sheen { position: absolute; inset: 0 auto 0 0; width: 45%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .55), transparent); animation: cta-sheen 6s ease-in-out 1s infinite; transform: translateX(-130%); }
+
+/* riflesso che attraversa una parola (wordmark del footer) */
+@keyframes sheen { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.sheen {
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg, rgb(238 235 230 / .06) 40%, rgb(220 191 143 / .45) 50%, rgb(238 235 230 / .06) 60%);
+  background-size: 250% 100%; animation: sheen 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-loop, .sparkle, .sheen, .star-sheen > span, .cta-sheen { animation: none !important; }
+  .wordmark { animation: none !important; background-position: -30% 0; }
+  .glint-loop .glint, .glint { animation: none !important; opacity: 0 !important; }
+}
+
+@keyframes laser-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+.laser-flicker { animation: laser-flicker .12s steps(2) infinite; }
