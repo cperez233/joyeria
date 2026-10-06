@@ -202,7 +202,7 @@ const it = {
     today: "Oggi", openUntil: (h: string) => `aperti fino alle ${h}`, closedNow: "ora chiuso, riapriamo alle 9:30",
     closed: "Chiuso il 1° gennaio, il 25 aprile, il 1° maggio, il 25 e il 26 dicembre.",
     directions: "Indicazioni stradali", cta: "Scrivici su WhatsApp", ask: "Ciao! Vorrei passare in negozio.",
-    mapTitle: "Mappa: Jovi's al Centro Commerciale Meduna, Pordenone", openMap: "Apri in Google Maps", mapHint: "Clicca per muovere la mappa",
+    mapTitle: "Mappa: Jovi's al Centro Commerciale Meduna, Pordenone", openMap: "Apri in Google Maps",
     photoAlt: "Anello in acciaio a maglia grumetta su un legno, foto di Jovi's",
   },
   footer: {
@@ -344,7 +344,7 @@ const en: Copy = {
     today: "Today", openUntil: (h: string) => `open until ${h}`, closedNow: "closed now, we reopen at 9:30",
     closed: "Closed on 1 January, 25 April, 1 May, 25 and 26 December.",
     directions: "Get directions", cta: "Message us on WhatsApp", ask: "Hello! I'd like to visit the shop.",
-    mapTitle: "Map: Jovi's at Centro Commerciale Meduna, Pordenone", openMap: "Open in Google Maps", mapHint: "Click to move the map",
+    mapTitle: "Map: Jovi's at Centro Commerciale Meduna, Pordenone", openMap: "Open in Google Maps",
     photoAlt: "Steel curb-link ring on driftwood, photo by Jovi's",
   },
   footer: {

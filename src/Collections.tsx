@@ -1,5 +1,5 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
-import { AnimatePresence, cancelFrame, frame as frameloop, motion, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "framer-motion";
+import { AnimatePresence, animate, motion, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -65,49 +65,53 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
   const [phone] = useState(() => !matchMedia("(min-width: 768px)").matches);
   const panelRef = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
-  const sheet = useRef<HTMLDivElement>(null);
-  // la parte visibile della foto: fino al bordo del foglio di testo che le sale sopra
-  const shown = (): Box => { const h = box(head.current!), top = sheet.current ? sheet.current.getBoundingClientRect().top : h.top + h.height; return { ...h, height: top - h.top }; };
+  const cloneRef = useRef<HTMLDivElement>(null);
+  const cloneImg = useRef<HTMLImageElement>(null);
   const frame = () => origin?.querySelector("[data-frame]") ?? null;
-  /* La foto vola dalla tarjeta alla testata della scheda (e torna indietro chiudendo): un clone fisso,
-     così niente la ritaglia durante il volo. La destinazione è dove arriverà la scheda, non dove parte. */
-  const [fly, setFly] = useState<{ from: Box; to: Box } | null>(null);
-  const [back, setBack] = useState<{ from: Box; to: Box } | null>(null);
+  const canFly = !!origin && !reduce;
+  const [flying, setFlying] = useState(canFly);
+
+  /* La foto vola dalla tarjeta alla testata. Vive DENTRO il pannello (prima del foglio di testo, che quindi le sta
+     sopra senza ritagli) e ad ogni fotogramma si ricalcola dalla posizione reale del pannello e della testata:
+     così atterra esattamente dove sta la testata, senza correzioni finali. Niente transform sui figli: angoli tondi anche su Safari. */
+  const place = (from: Box, v: number) => {
+    const c = cloneRef.current, im = cloneImg.current, pn = panelRef.current, h = head.current;
+    if (!c || !im || !pn || !h) return;
+    const pr = pn.getBoundingClientRect(), hr = h.getBoundingClientRect();
+    const mix = (a: number, b: number) => a + (b - a) * v;
+    c.style.left = `${mix(from.left, hr.left) - pr.left}px`;
+    c.style.top = `${mix(from.top, hr.top) - pr.top}px`;
+    c.style.width = `${mix(from.width, hr.width)}px`;
+    c.style.height = `${mix(from.height, hr.height)}px`;
+    const rt = mix(26, 28), rb = mix(26, 0);
+    c.style.borderRadius = `${rt}px ${rt}px ${rb}px ${rb}px`;
+    const z = mix(1.1, 1); // nella tarjeta la foto è ingrandita del 10%
+    im.style.left = im.style.top = `${(1 - z) * 50}%`;
+    im.style.width = im.style.height = `${z * 100}%`;
+  };
   useLayoutEffect(() => {
     const f = frame();
-    if (reduce || !f || !head.current || !panelRef.current) return;
-    const h = shown(), p = box(panelRef.current);
-    setFly({ from: box(f), to: phone ? { ...h, top: h.top - p.height } : { ...h, left: h.left - p.width } });
+    if (!canFly || !f) { setFlying(false); return; }
+    const from = box(f);
+    place(from, 0);
+    const ctl = animate(0, 1, { duration: 0.7, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => setFlying(false) });
+    return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const closing = useRef(false);
   const onClose = useCallback(() => {
     if (closing.current) return;
     closing.current = true;
     const f = frame();
-    if (reduce || !f || !head.current) { close(); return; }
-    setFly(null);
-    setBack({ from: shown(), to: box(f) });
-    requestAnimationFrame(() => close());
-  }, [close, reduce]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hidden = !!fly || !!back;
-  // ad ogni fotogramma la foto in volo si taglia sul bordo del foglio di testo: il testo resta sempre sopra
-  const cloneRef = useRef<HTMLDivElement>(null);
-  const tuck = () => {
-    const c = cloneRef.current, sh = sheet.current;
-    if (!c || !sh) return;
-    const r = c.getBoundingClientRect(), q = sh.getBoundingClientRect();
-    const y0 = q.top - r.top, x0 = Math.max(0, q.left - r.left), x1 = Math.min(r.width, q.right - r.left);
-    // si toglie solo il pezzo che cade sopra il foglio (in PC il pannello entra da destra)
-    c.style.clipPath = y0 < r.height && x1 > x0
-      ? `polygon(0 0, 100% 0, 100% 100%, ${x1}px 100%, ${x1}px ${y0}px, ${x0}px ${y0}px, ${x0}px 100%, 0 100%)`
-      : "none";
-  };
-  // dopo il render di Framer, quando il pannello si è già mosso in questo fotogramma (onUpdate arriva un attimo prima)
-  useEffect(() => {
-    if (!fly && !back) return;
-    frameloop.postRender(tuck, true);
-    return () => cancelFrame(tuck);
-  }, [fly, back]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (canFly && f) {
+      const to = box(f);
+      setFlying(true);
+      place(to, 1);
+      animate(1, 0, { duration: 0.5, ease: lid, onUpdate: (v) => place(to, v) });
+    }
+    close();
+  }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hidden = flying;
   useEffect(() => {
     closeRef.current?.focus();
     smooth.lenis?.stop();
@@ -124,10 +128,16 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
     <div className="fixed inset-0 z-[60]" data-lenis-prevent>
       <motion.div className="absolute inset-0 bg-graphite/55 backdrop-blur-[2px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} />
       <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
-        transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 280, damping: 32 }}
+        transition={reduce ? { duration: 0 } : { duration: 0.6, ease: lid }} exit={{ ...(phone ? { y: "100%" } : { x: "100%" }), transition: { duration: 0.5, ease: lid } }}
         drag={phone ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={(_, i) => (i.offset.y > 120 || i.velocity.y > 600) && onClose()}
-        className="absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col overflow-hidden rounded-t-[28px] bg-pearl shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]">
+        className={`absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col rounded-t-[28px] bg-pearl ${hidden ? "overflow-visible" : "overflow-hidden"} shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]`}>
+        {canFly && (
+          <div ref={cloneRef} aria-hidden style={{ visibility: flying ? "visible" : "hidden" }}
+            className="pointer-events-none absolute overflow-hidden bg-steel shadow-[0_24px_48px_-20px_rgb(10_12_14/.5)]">
+            <img ref={cloneImg} src={foto(ph.src, 1000)} alt="" draggable={false} style={{ objectPosition: ph.pos }} className="absolute max-w-none object-cover" />
+          </div>
+        )}
         <div className={`absolute inset-x-0 top-2 z-10 flex justify-center transition-opacity duration-300 md:hidden ${hidden ? "opacity-0" : "opacity-100"}`} aria-hidden><span className="h-1.5 w-11 rounded-full bg-pearl/80 shadow" /></div>
         <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel}
           className={`absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-full bg-pearl/90 text-ink shadow-[var(--shadow-rest)] backdrop-blur transition-[transform,opacity] duration-300 hover:rotate-90 active:scale-95 ${hidden ? "opacity-0" : "opacity-100"}`}>
@@ -140,7 +150,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
               src={foto(ph.src, 1000)} width={1000} height={1250} alt={it.alt} draggable={false}
               className="aspect-[5/4] w-full object-cover" />
           </div>
-          <motion.div ref={sheet} className={`relative -mt-8 bg-pearl px-6 pb-8 pt-7 transition-[border-radius] duration-500 ease-[var(--ease-out-soft)] ${hidden ? "rounded-t-none" : "rounded-t-[26px]"}`} initial="hidden" animate="show"
+          <motion.div className="relative -mt-8 rounded-t-[26px] bg-pearl px-6 pb-8 pt-7" initial="hidden" animate="show"
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } }}>
             {[
               <h3 key="n" id="d-name" className="text-[36px] leading-[1.02]">{it.name}</h3>,
@@ -154,27 +164,6 @@ function Detail({ id, t, onClose: close, closeLabel, origin }: { id: CollId; t: 
           </motion.div>
         </div>
       </motion.div>
-      {(fly || back) && (() => {
-        const f = (fly ?? back)!;
-        // angoli come numeri, uno per uno: così Framer li interpola (una stringa "28px 28px 0 0" contro 26 salta)
-        const card = { borderTopLeftRadius: 26, borderTopRightRadius: 26, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 };
-        const top = { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 };
-        // nella tarjeta la foto è ingrandita del 10%: il volo la riporta a misura senza trasformazioni (Safari non ritaglia gli angoli dei figli trasformati)
-        const zoom = { left: "-5%", top: "-5%", width: "110%", height: "110%" }, fit = { left: "0%", top: "0%", width: "100%", height: "100%" };
-        const t = { duration: back ? 0.55 : 0.7, ease: lid };
-        return (
-          <motion.div ref={cloneRef} key={back ? "back" : "fly"} aria-hidden className="pointer-events-none absolute isolate overflow-hidden bg-steel shadow-[var(--shadow-float)]"
-            style={{ WebkitMaskImage: "-webkit-radial-gradient(white, black)" }}
-            initial={{ ...f.from, ...(back ? top : card) }}
-            animate={back ? { ...f.from, ...top } : { ...f.to, ...top }}
-            exit={back ? { ...f.to, ...card } : undefined}
-            transition={t}
-            onAnimationComplete={() => { if (!back) setFly(null); }}>
-            <motion.img src={foto(ph.src, 1000)} alt="" draggable={false} style={{ objectPosition: ph.pos }} className="absolute max-w-none object-cover"
-              initial={back ? fit : zoom} animate={fit} exit={back ? zoom : undefined} transition={t} />
-          </motion.div>
-        );
-      })()}
     </div>,
     document.body,
   );
