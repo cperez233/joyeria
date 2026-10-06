@@ -32,3 +32,21 @@ export const jsonLd = (lang: Lang) => {
     ],
   };
 };
+
+/** Rellena i segnaposto di index.html (%TITLE%, %DESC%…) per una lingua. Lo usano il prerender e il server di sviluppo,
+ *  così il titolo della scheda non resta mai "%TITLE%". */
+export const fillHead = (tpl: string, lang: Lang) => {
+  const c = copy[lang], canon = site.url + langPath(lang);
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  return tpl
+    .replace("%LANG%", lang)
+    .replace("%TITLE%", esc(c.meta.title))
+    .replace("%DESC%", esc(c.meta.description))
+    .split("%CANON%").join(canon)
+    .split("%SITE%").join(site.url)
+    .replace("%OGLOCALE%", c.locale)
+    .replace("%OGLOCALEALT%", copy[lang === "it" ? "en" : "it"].locale)
+    .replace("%OGTITLE%", esc(c.meta.ogTitle))
+    .replace("%OGDESC%", esc(c.meta.ogDescription))
+    .replace("%OGALT%", esc(c.meta.ogAlt));
+};

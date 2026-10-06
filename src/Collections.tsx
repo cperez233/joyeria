@@ -33,7 +33,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
       className={`w-[80%] shrink-0 snap-center sm:w-[56%] md:w-[44%] lg:w-[min(44vh,430px)] ${n % 2 ? "lg:mt-[14vh]" : "lg:-mt-[4vh]"}`}>
       <motion.div variants={{ hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } } }}>
       <button type="button" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget, e.detail === 0)} className="group block w-full text-left transition-transform duration-300 active:scale-[0.98]">
-        <span data-frame className="relative block overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
+        <span data-frame className="relative isolate block transform-gpu overflow-hidden rounded-[26px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]">
           <motion.img src={foto(ph.src)} srcSet={`${foto(ph.src)} 640w, ${foto(ph.src, 1000)} 1000w`} sizes="(min-width:1024px) 430px, 80vw"
             width={640} height={800} alt={it.alt} loading="lazy" decoding="async" draggable={false}
             style={{ objectPosition: ph.pos, x: desktop ? imgX : 0 }}
@@ -41,7 +41,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
           {/* un riflesso attraversa la foto al passaggio del puntero */}
           <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-[60%] w-[45%] -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 transition-[left,opacity] duration-[1.1s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:left-[120%] [@media(hover:hover)]:group-hover:opacity-100" />
           <TouchSheen />
-          <span className="absolute left-3.5 top-3.5 rounded-full bg-pearl/90 px-3 py-1 text-[13px] font-semibold text-ink backdrop-blur-sm">{t.tag}</span>
+          <span data-chip className="absolute left-3.5 top-3.5 rounded-full bg-pearl/90 px-3 py-1 text-[13px] font-semibold text-ink backdrop-blur-sm">{t.tag}</span>
         </span>
         <span className="mt-4 flex items-end justify-between gap-4 px-1">
           <span className="min-w-0">
@@ -96,11 +96,22 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     if (!canFly || !f) { setFlying(false); return; }
     const from = box(f);
     place(from, 0);
+    (f as HTMLElement).style.visibility = "hidden"; // la foto ora è "in volo": niente doppione sotto il velo
     const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => setFlying(false) });
     return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // la tarjeta riappare nel fotogramma in cui la foto atterra; l'etichetta "si può incidere" entra con una dissolvenza
+  const reveal = (f: Element) => {
+    const el = f as HTMLElement;
+    if (el.style.visibility !== "hidden") return;
+    const chip = el.querySelector<HTMLElement>("[data-chip]");
+    if (chip) { chip.style.opacity = "0"; chip.style.transition = "opacity .4s ease"; requestAnimationFrame(() => { chip.style.opacity = ""; }); }
+    el.style.visibility = "";
+  };
   const closing = useRef(false);
+  // rete di sicurezza se il volo di ritorno non finisce; solo a chiusura vera (StrictMode smonta e rimonta anche all'apertura)
+  useEffect(() => () => { const f = frame(); if (f && closing.current) setTimeout(() => reveal(f), 900); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const returning = useRef(false);
   const onClose = useCallback(() => {
     if (closing.current) return;
@@ -112,7 +123,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
       returning.current = true;
       setFlying(true);
       place(card, 1);
-      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(card, v) });
+      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(card, v), onComplete: () => reveal(f) });
     }
     close();
   }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +143,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
 
   return createPortal(
     <div className="fixed inset-0 z-[60]" data-lenis-prevent>
-      <motion.div className="absolute inset-0 bg-graphite/55 backdrop-blur-[2px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} />
+      <motion.div className="absolute inset-0 bg-graphite/55 backdrop-blur-[2px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.65, ease: lid } }} transition={{ duration: 0.5 }} />
       <motion.div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="d-name" {...panel}
         transition={reduce ? { duration: 0 } : { duration: 0.9, ease: lid }} exit={{ ...(phone ? { y: "100%" } : { x: "100%" }), transition: { duration: 0.75, ease: lid } }}
         drag={phone ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
@@ -140,7 +151,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
         className={`absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col rounded-t-[28px] bg-pearl outline-none ${hidden ? "overflow-visible" : "overflow-hidden"} shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]`}>
         {canFly && (
           <div ref={cloneRef} aria-hidden style={{ visibility: flying ? "visible" : "hidden" }}
-            className="pointer-events-none absolute overflow-hidden bg-steel shadow-[0_24px_48px_-20px_rgb(10_12_14/.5)]">
+            className="pointer-events-none absolute isolate transform-gpu overflow-hidden bg-steel shadow-[0_24px_48px_-20px_rgb(10_12_14/.5)]">
             <img ref={cloneImg} src={foto(ph.src, 1000)} alt="" draggable={false} style={{ objectPosition: ph.pos }} className="absolute max-w-none object-cover" />
           </div>
         )}

@@ -22,7 +22,7 @@ function Tile({ w, i, row }: { w: Work; i: number; row?: RefObject<HTMLDivElemen
     <motion.figure ref={ref} style={row ? { scale, rotate, opacity: dim } : undefined} className={`group ${row ? "w-[74%] shrink-0 snap-center" : ""}`}>
       <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.9, delay: (i % 3) * 0.08, ease }}>
-      <motion.div className="relative overflow-hidden rounded-[22px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]"
+      <motion.div className="relative isolate transform-gpu overflow-hidden rounded-[22px] bg-steel shadow-[var(--shadow-raised)] transition-shadow duration-500 [@media(hover:hover)]:group-hover:shadow-[var(--shadow-float)]"
         initial={{ clipPath: "inset(18% 0% 0% 0% round 22px)" }} whileInView={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
         viewport={{ once: true, margin: "-40px" }} transition={{ duration: 1.1, ease }}>
         <img src={`/foto/${w.src}-560.webp`} srcSet={`/foto/${w.src}-560.webp 560w, /foto/${w.src}-900.webp 900w`} sizes="(min-width:1024px) 400px, 50vw"

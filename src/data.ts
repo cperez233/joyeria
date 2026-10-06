@@ -76,7 +76,7 @@ const it = {
   lang: "it" as Lang,
   locale: "it_IT",
   meta: {
-    title: "Gioielli in acciaio personalizzati a Pordenone | Jovi's Gioielli",
+    title: "Jovi's Gioielli | Gioielli in acciaio personalizzati a Pordenone",
     description: "Bracciali, collane, anelli e fedi nuziali in acciaio inossidabile, incisi al momento con foto, frasi o canzoni. Centro Commerciale Meduna, Pordenone.",
     ogTitle: "Jovi's Gioielli · Gioielli in acciaio incisi come vuoi tu",
     ogDescription: "Bracciali, collane, anelli e fedi nuziali in acciaio, personalizzati con l'incisione di una foto, una frase o una canzone. Pordenone.",
@@ -218,7 +218,7 @@ const en: Copy = {
   lang: "en",
   locale: "en_GB",
   meta: {
-    title: "Engraved stainless steel jewellery in Pordenone | Jovi's Gioielli",
+    title: "Jovi's Gioielli | Engraved stainless steel jewellery in Pordenone",
     description: "Stainless steel bracelets, necklaces, rings and wedding bands, engraved on the spot with a photo, a phrase or a song. Centro Commerciale Meduna, Pordenone.",
     ogTitle: "Jovi's Gioielli · Steel jewellery, engraved your way",
     ogDescription: "Stainless steel bracelets, necklaces, rings and wedding bands, personalised with an engraved photo, phrase or song. Pordenone, Italy.",

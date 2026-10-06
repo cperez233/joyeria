@@ -1,24 +1,13 @@
 // editorial-ui · Cristian Pérez · cristianperez.me
 // HTML prerenderizado por idioma (/ italiano, /en/ inglés) y archivos de rastreo, todo desde src/data.ts.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { render, jsonLd, site, copy, langs, langPath, navIds } from "../dist-ssr/entry-server.js";
+import { render, jsonLd, fillHead, site, copy, langs, langPath, navIds } from "../dist-ssr/entry-server.js";
 
 const tpl = readFileSync("dist/index.html", "utf8");
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 for (const lang of langs) {
-  const c = copy[lang], canon = site.url + langPath(lang);
-  const html = tpl
-    .replace("%LANG%", lang)
-    .replace("%TITLE%", esc(c.meta.title))
-    .replace("%DESC%", esc(c.meta.description))
-    .replaceAll("%CANON%", canon)
-    .replaceAll("%SITE%", site.url)
-    .replace("%OGLOCALE%", c.locale)
-    .replace("%OGLOCALEALT%", copy[lang === "it" ? "en" : "it"].locale)
-    .replace("%OGTITLE%", esc(c.meta.ogTitle))
-    .replace("%OGDESC%", esc(c.meta.ogDescription))
-    .replace("%OGALT%", esc(c.meta.ogAlt))
+  const html = fillHead(tpl, lang)
     .replace("<!--jsonld-->", `<script type="application/ld+json">${JSON.stringify(jsonLd(lang)).replace(/</g, "\\u003c")}</script>`)
     .replace("<!--app-->", render(lang));
   const out = lang === "it" ? "dist/index.html" : "dist/en/index.html";
