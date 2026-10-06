@@ -74,9 +74,13 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
   /* La foto vola dalla tarjeta alla testata. Vive DENTRO il pannello (prima del foglio di testo, che quindi le sta
      sopra senza ritagli) e ad ogni fotogramma si ricalcola dalla posizione reale del pannello e della testata:
      così atterra esattamente dove sta la testata, senza correzioni finali. Niente transform sui figli: angoli tondi anche su Safari. */
-  const place = (src: Box | (() => Box | null), v: number) => {
-    const from = typeof src === "function" ? src() : src;
-    if (!from) return;
+  const place = (f: Element, v: number) => {
+    if (!f.isConnected) return;
+    const from = box(f);
+    // l'inquadratura esatta della foto nella tarjeta (zoom del 10% e, in PC, lo spostamento di parallasse che cambia
+    // con l'avanzare della vetrina): il clone parte e atterra con gli stessi pixel, niente salto della foto
+    const ci = f.querySelector("img")?.getBoundingClientRect();
+    const crop = ci ? { l: (ci.left - from.left) / from.width, t: (ci.top - from.top) / from.height, w: ci.width / from.width, h: ci.height / from.height } : { l: -0.05, t: -0.05, w: 1.1, h: 1.1 };
     const c = cloneRef.current, im = cloneImg.current, pn = panelRef.current, h = head.current;
     if (!c || !im || !pn || !h) return;
     const pr = pn.getBoundingClientRect(), hr = h.getBoundingClientRect();
@@ -87,18 +91,18 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     c.style.height = `${mix(from.height, hr.height)}px`;
     const rt = mix(26, 28), rb = returning.current ? 26 : mix(26, 0);
     c.style.borderRadius = `${rt}px ${rt}px ${rb}px ${rb}px`;
-    const z = mix(1.1, 1); // nella tarjeta la foto è ingrandita del 10%
-    im.style.left = im.style.top = `${(1 - z) * 50}%`;
-    im.style.width = im.style.height = `${z * 100}%`;
+    im.style.left = `${mix(crop.l, 0) * 100}%`;
+    im.style.top = `${mix(crop.t, 0) * 100}%`;
+    im.style.width = `${mix(crop.w, 1) * 100}%`;
+    im.style.height = `${mix(crop.h, 1) * 100}%`;
   };
   useLayoutEffect(() => {
     const f = frame();
     if (!canFly || !f) { setFlying(false); return; }
-    const from = box(f);
-    place(from, 0);
+    place(f, 0);
     (f as HTMLElement).style.visibility = "hidden"; // durante il volo la foto è una sola: la tarjeta si nasconde
     // atterrata la foto nella scheda, la tarjeta torna al suo posto dietro il velo (con una dissolvenza, senza buco nella vetrina)
-    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(from, v), onComplete: () => { setFlying(false); reveal(f, true); } });
+    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(f, v), onComplete: () => { setFlying(false); reveal(f, true); } });
     openFlight.current = ctl;
     return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -125,14 +129,15 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     closing.current = true;
     const f = frame();
     if (canFly && f) {
-      // la tarjeta si legge viva ad ogni fotogramma: se la pagina dietro si è spostata, la foto atterra comunque su di lei
-      const card = () => (f.isConnected ? box(f) : null);
+      // la tarjeta si legge viva ad ogni fotogramma (place): se qualcosa dietro si sposta, la foto atterra comunque su di lei
       openFlight.current?.stop(); // se si chiude mentre la foto sta ancora entrando
       (f as HTMLElement).style.visibility = "hidden"; // torna a essere una sola foto: quella che vola
       returning.current = true;
       setFlying(true);
-      place(card, 1);
-      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(card, v), onComplete: () => reveal(f) });
+      // la foto se ne va: passa sopra il foglio di testo (all'andata ci entrava sotto)
+      if (cloneRef.current) cloneRef.current.style.zIndex = "20";
+      place(f, 1);
+      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(f, v), onComplete: () => reveal(f) });
     }
     close();
   }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -140,6 +145,8 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
   useEffect(() => {
     // da tastiera il fuoco va sul pulsante chiudi; col tocco sul pannello stesso, senza anello visibile
     (keyboard ? closeRef.current : panelRef.current)?.focus({ preventScroll: true });
+    // se lo scroll morbido stava ancora frenando, si ferma qui: alla chiusura non riprende il tratto mancante (la vetrina si sposterebbe)
+    smooth.lenis?.scrollTo(window.scrollY, { immediate: true, force: true });
     smooth.lenis?.stop();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const html = document.documentElement, prev = html.style.overflow;
