@@ -41,7 +41,7 @@ function Card({ id, n, t, onOpen, progress, row, desktop }:
           {/* un riflesso attraversa la foto al passaggio del puntero */}
           <span aria-hidden className="pointer-events-none absolute inset-y-0 -left-[60%] w-[45%] -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 transition-[left,opacity] duration-[1.1s] ease-[var(--ease-out-soft)] [@media(hover:hover)]:group-hover:left-[120%] [@media(hover:hover)]:group-hover:opacity-100" />
           <TouchSheen />
-          <span data-chip className="absolute left-3.5 top-3.5 rounded-full bg-pearl/90 px-3 py-1 text-[13px] font-semibold text-ink backdrop-blur-sm">{t.tag}</span>
+          <span className="absolute left-3.5 top-3.5 rounded-full bg-pearl/90 px-3 py-1 text-[13px] font-semibold text-ink backdrop-blur-sm">{t.tag}</span>
         </span>
         <span className="mt-4 flex items-end justify-between gap-4 px-1">
           <span className="min-w-0">
@@ -91,6 +91,13 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     c.style.height = `${mix(from.height, hr.height)}px`;
     const rt = mix(26, 28), rb = returning.current ? 26 : mix(26, 0);
     c.style.borderRadius = `${rt}px ${rt}px ${rb}px ${rb}px`;
+    // l'ombra del volo sparisce mentre la foto si posa: sulla tarjeta resta solo l'ombra della tarjeta
+    const lift = Math.sin(Math.min(1, v * 1.6) * Math.PI / 2);
+    c.style.boxShadow = `0 ${24 * lift}px ${48 * lift}px -20px rgb(10 12 14 / ${0.5 * lift})`;
+    // solo negli ultimi pixel prima di posarsi la foto si fonde con la tarjeta (che sotto è identica):
+    // l'etichetta "si può incidere" sfuma invece di saltare, senza doppia immagine
+    const away = v * (Math.hypot(hr.left - from.left, hr.top - from.top) + Math.abs(hr.width - from.width));
+    c.style.opacity = `${Math.min(1, away / 6)}`;
     im.style.left = `${mix(crop.l, 0) * 100}%`;
     im.style.top = `${mix(crop.t, 0) * 100}%`;
     im.style.width = `${mix(crop.w, 1) * 100}%`;
@@ -100,29 +107,14 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     const f = frame();
     if (!canFly || !f) { setFlying(false); return; }
     place(f, 0);
-    (f as HTMLElement).style.visibility = "hidden"; // durante il volo la foto è una sola: la tarjeta si nasconde
-    // atterrata la foto nella scheda, la tarjeta torna al suo posto dietro il velo (con una dissolvenza, senza buco nella vetrina)
-    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(f, v), onComplete: () => { setFlying(false); reveal(f, true); } });
+    // la tarjeta resta al suo posto: la foto ne decolla e ci si riposa sopra con gli stessi pixel, niente sparizioni
+    const ctl = animate(0, 1, { duration: 1.05, ease: lid, onUpdate: (v) => place(f, v), onComplete: () => setFlying(false) });
     openFlight.current = ctl;
     return () => ctl.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // la tarjeta riappare nel fotogramma in cui la foto atterra; l'etichetta "si può incidere" entra con una dissolvenza
-  const reveal = (f: Element, soft = false) => {
-    const el = f as HTMLElement;
-    if (el.style.visibility !== "hidden") return;
-    const fadeIn = (x: HTMLElement) => {
-      x.style.transition = "opacity .45s ease"; x.style.opacity = "0";
-      requestAnimationFrame(() => requestAnimationFrame(() => { x.style.opacity = ""; setTimeout(() => { x.style.transition = ""; }, 500); }));
-    };
-    const chip = el.querySelector<HTMLElement>("[data-chip]");
-    if (soft) fadeIn(el); else if (chip) fadeIn(chip);
-    el.style.visibility = "";
-  };
   const openFlight = useRef<{ stop: () => void } | null>(null);
   const closing = useRef(false);
-  // rete di sicurezza se il volo di ritorno non finisce; solo a chiusura vera (StrictMode smonta e rimonta anche all'apertura)
-  useEffect(() => () => { const f = frame(); if (f && closing.current) setTimeout(() => reveal(f), 900); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const returning = useRef(false);
   const onClose = useCallback(() => {
     if (closing.current) return;
@@ -131,13 +123,12 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
     if (canFly && f) {
       // la tarjeta si legge viva ad ogni fotogramma (place): se qualcosa dietro si sposta, la foto atterra comunque su di lei
       openFlight.current?.stop(); // se si chiude mentre la foto sta ancora entrando
-      (f as HTMLElement).style.visibility = "hidden"; // torna a essere una sola foto: quella che vola
       returning.current = true;
       setFlying(true);
       // la foto se ne va: passa sopra il foglio di testo (all'andata ci entrava sotto)
       if (cloneRef.current) cloneRef.current.style.zIndex = "20";
       place(f, 1);
-      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(f, v), onComplete: () => reveal(f) });
+      animate(1, 0, { duration: 0.75, ease: lid, onUpdate: (v) => place(f, v) });
     }
     close();
   }, [close, canFly]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -167,7 +158,7 @@ function Detail({ id, t, onClose: close, closeLabel, origin, keyboard }: { id: C
         className={`absolute inset-x-0 bottom-0 flex max-h-[92svh] flex-col rounded-t-[28px] bg-pearl outline-none ${hidden ? "overflow-visible" : "overflow-hidden"} shadow-[var(--shadow-float)] md:inset-y-3 md:left-auto md:right-3 md:max-h-none md:w-[480px] md:rounded-[28px]`}>
         {canFly && (
           <div ref={cloneRef} aria-hidden style={{ visibility: flying ? "visible" : "hidden" }}
-            className="pointer-events-none absolute isolate transform-gpu overflow-hidden bg-steel shadow-[0_24px_48px_-20px_rgb(10_12_14/.5)]">
+            className="pointer-events-none absolute isolate transform-gpu overflow-hidden bg-steel">
             <img ref={cloneImg} src={foto(ph.src, 1000)} alt="" draggable={false} style={{ objectPosition: ph.pos }} className="absolute max-w-none object-cover" />
           </div>
         )}
