@@ -243,7 +243,7 @@ export function Collections({ t, closeLabel }: { t: Copy["collections"]; closeLa
 
             <motion.ul ref={row} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} data-lenis-prevent-touch
               variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
-              className="mt-10 flex snap-x snap-mandatory scroll-px-[10%] gap-3 overflow-x-auto px-[10%] pb-6 [scrollbar-width:none] sm:gap-5 lg:mt-0 lg:snap-none lg:gap-12 lg:overflow-visible lg:px-0 lg:pb-0">
+              className="relative mt-10 flex snap-x snap-mandatory scroll-px-[10%] gap-3 overflow-x-auto px-[10%] pb-6 [scrollbar-width:none] sm:gap-5 lg:mt-0 lg:snap-none lg:gap-12 lg:overflow-visible lg:px-0 lg:pb-0">
               {collIds.map((id, n) => (
                 <Card key={id} id={id} n={n} t={t} progress={p} row={row} desktop={desktop} onOpen={(c, el, kb) => { trigger.current = el; keyboard.current = kb; setOpen(c); }} />
               ))}

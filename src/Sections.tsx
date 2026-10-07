@@ -79,7 +79,7 @@ export function Works({ t }: { t: Copy["works"] }) {
           </div>
         ) : (
           // celular: una fila deslizable, così il muro non allunga la pagina
-          <div ref={ref} data-lenis-prevent-touch className="-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-[13%] gap-2 overflow-x-auto px-[13%] pb-4 [scrollbar-width:none] sm:-mx-8">
+          <div ref={ref} data-lenis-prevent-touch className="relative -mx-4 mt-10 flex snap-x snap-mandatory scroll-px-[13%] gap-2 overflow-x-auto px-[13%] pb-4 [scrollbar-width:none] sm:-mx-8">
             {all.map((w, i) => <Tile key={w.src} w={w} i={i} row={ref} />)}
           </div>
         )}
